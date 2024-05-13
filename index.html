@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Perspective Photo Clip Art</title>
+    <style>
+        .container {
+            display: flex;
+        }
+        #background-container {
+            visibility: hidden;
+            margin: 10px;
+            margin-left: 0;
+        }
+
+        #object-container {
+            visibility: hidden;
+            margin: 10px;
+        }
+    </style>
+    <script type="module" src="https://pyscript.net/releases/2024.5.1/core.js"></script>
+<body>
+    <h1>Perspective Photo Clip Art</h1>
+    <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
+    <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+
+    <div class="container">
+        <div id="background-container">
+            <h3>Background Image</h1>
+            <canvas id="background-canvas" onclick="backgroundClick(event)"></canvas>
+            <br>
+            <input type="radio" name="background-axis" value="x-axis" checked> x-axis
+            <input type="radio" name="background-axis" value="y-axis"> y-axis
+            <input type="radio" name="background-axis" value="z-axis"> z-axis
+            <input type="radio" name="background-axis" value="height"> height
+            <br>
+            <input type="number" id="background-height" onchange="backgroundHeightValueChange()" placeholder="height">
+        </div>
+
+        <div id="object-container">
+            <h3>Object Image</h1>
+            <canvas id="object-canvas" onclick="objectClick(event)"></canvas>
+            <br>
+            <p>First, select the origin point</p>
+            <input type="radio" name="object-axis" value="x-axis" checked> x-axis
+            <input type="radio" name="object-axis" value="y-axis"> y-axis
+            <input type="radio" name="object-axis" value="z-axis"> z-axis
+            <input type="radio" name="object-axis" value="height"> height
+            <br>
+            <input type="number" id="object-height" onchange="objectHeightValueChange()" placeholder="height">
+        </div>
+    </div>
+
+    <div id="python-event"></div>
+
+    
+    <input type="button" value="done" onclick="getResult()">
+
+    <script>
+        const inputMode = {
+            x: 0,
+            y: 1,
+            z: 2,
+            origin: 4,
+            height: 5
+        }
+
+        var backgroundCanvas = document.getElementById("background-canvas")
+        var objectCanvas = document.getElementById("object-canvas")
+        
+        var backgroundImage = undefined
+        var objectImage = undefined
+
+        var backgroundX = []
+        var backgroundY = []
+        var backgroundZ = []
+        var backgroundHeight = undefined
+        var backgroundHeightValue = undefined
+        var backgroundAxis = inputMode.x
+        var backgroundP = null
+        
+        var objectX = []
+        var objectY = []
+        var objectZ = []
+        var objectHeight = undefined
+        var objectHeightValue = undefined
+        var objectAxis = inputMode.x
+        var objectOrigin = undefined
+        var objectP = null
+
+        const python = new Event("python")
+        const pythonEvent = document.getElementById("python-event")
+
+        function backgroundInit() {
+            backgroundX = []
+            backgroundY = []
+            backgroundZ = []
+            backgroundHeight = undefined
+            backgroundHeightValue = undefined
+            backgroundAxis = inputMode.x
+            backgroundP = null
+        }
+
+        function objectInit() {
+            objectX = []
+            objectY = []
+            objectZ = []
+            objectHeight = undefined
+            objectHeightValue = undefined
+            objectAxis = inputMode.x
+            objectOrigin = undefined
+            objectP = null
+        }
+
+        function backgroundHeightValueChange() {
+            backgroundHeightValue = Number(document.getElementById("background-height").value)
+        }
+
+        function objectHeightValueChange() {
+            objectHeightValue = Number(document.getElementById("object-height").value)
+        }
+
+
+        // from https://gist.github.com/jwir3/d797037d2e1bf78a9b04838d73436197
+        function drawArrowhead(canvas, ends, radius) {
+            var context = canvas.getContext("2d")
+
+            var from = ends[0]
+            var to = ends[1]
+
+            var x_center = to[0]
+            var y_center = to[1]
+
+            var angle
+            var x
+            var y
+
+            context.beginPath()
+
+            angle = Math.atan2(to[1] - from[1], to[0] - from[0])
+            x = radius * Math.cos(angle) + x_center
+            y = radius * Math.sin(angle) + y_center
+
+            context.moveTo(x, y)
+
+            angle += (1.0/3.0) * (2 * Math.PI)
+            x = radius * Math.cos(angle) + x_center
+            y = radius * Math.sin(angle) + y_center
+
+            context.lineTo(x, y)
+
+            angle += (1.0/3.0) * (2 * Math.PI)
+            x = radius * Math.cos(angle) + x_center
+            y = radius * Math.sin(angle) + y_center
+
+            context.lineTo(x, y)
+
+            context.closePath()
+
+            context.fill()
+        }
+
+        function drawLine(canvas, ends, color) {
+            var ctx = canvas.getContext("2d")
+
+            ctx.beginPath()
+            ctx.moveTo(ends[0][0], ends[0][1])
+            ctx.lineTo(ends[1][0], ends[1][1])
+            ctx.lineWidth = 3
+            ctx.strokeStyle = color
+            ctx.stroke()
+        }
+
+        function drawPoint(canvas, point, color) {
+            var ctx = canvas.getContext("2d")
+
+            ctx.fillRect(point[0] - 3, point[1] - 3, 6, 6)
+        }
+
+        function backgroundClick(event) {
+            var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+            var backgroundMode
+
+            switch(mode) {
+                case "x-axis":
+                    backgroundMode = inputMode.x
+                    break
+                case "y-axis":
+                    backgroundMode = inputMode.y
+                    break
+                case "z-axis":
+                    backgroundMode = inputMode.z
+                    break
+                case "height":
+                    backgroundMode = inputMode.height
+                    break
+            }
+
+            if (backgroundAxis != backgroundMode) {
+                backgroundP = null
+                backgroundAxis = backgroundMode
+            }
+
+            if (backgroundP === null) {
+                backgroundP = [event.offsetX, event.offsetY]
+            } else {
+                switch(backgroundMode) {
+                    case inputMode.x:
+                        backgroundX.push([backgroundP, [event.offsetX, event.offsetY]])
+                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "red")
+                        backgroundP = null
+                        break
+                    case inputMode.y:
+                        backgroundY.push([backgroundP, [event.offsetX, event.offsetY]])
+                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "green")
+                        backgroundP = null
+                        break
+                    case inputMode.z:
+                        backgroundZ.push([backgroundP, [event.offsetX, event.offsetY]])
+                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "blue")
+                        backgroundP = null
+                        break
+                    case inputMode.height:
+                        if (backgroundHeight === undefined) {
+                            backgroundHeight = [backgroundP, [event.offsetX, event.offsetY]]
+                            drawLine(backgroundCanvas, backgroundHeight, "black")
+                            drawArrowhead(backgroundCanvas, backgroundHeight, 10)
+                        }
+                        break
+                }
+            }
+        }
+
+        function objectClick(event) {
+            var mode = document.querySelector("input[name=\"object-axis\"]:checked").value
+            var objectMode
+
+            switch(mode) {
+                case "x-axis":
+                    objectMode = inputMode.x
+                    break
+                case "y-axis":
+                    objectMode = inputMode.y
+                    break
+                case "z-axis":
+                    objectMode = inputMode.z
+                    break
+                case "height":
+                    objectMode = inputMode.height
+                    break
+            }
+
+            if (objectOrigin === undefined) {
+                objectMode = inputMode.origin
+            }
+
+
+            if (objectAxis != objectMode) {
+                objectP = null
+                objectAxis = objectMode
+            }
+
+
+            if (objectMode == inputMode.origin) {
+                objectOrigin = [event.offsetX, event.offsetY]
+                drawPoint(objectCanvas, objectOrigin, "black")
+            } else {
+                if (objectP === null) {
+                    objectP = [event.offsetX, event.offsetY]
+                } else {
+                    switch(objectMode) {
+                        case inputMode.x:
+                            objectX.push([objectP, [event.offsetX, event.offsetY]])
+                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "red")
+                            objectP = null
+                            break
+                        case inputMode.y:
+                            objectY.push([objectP, [event.offsetX, event.offsetY]])
+                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "green")
+                            objectP = null
+                            break
+                        case inputMode.z:
+                            objectZ.push([objectP, [event.offsetX, event.offsetY]])
+                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "blue")
+                            objectP = null
+                            break
+                        case inputMode.height:
+                            if (objectHeight === undefined) {
+                                objectHeight = [objectP, [event.offsetX, event.offsetY]]
+                                drawLine(objectCanvas, objectHeight, "black")
+                                drawArrowhead(objectCanvas, objectHeight, 10)
+                            }
+                            break
+                    }
+                }
+            }
+        }
+
+        function loadBackground(event) {
+            background_p = undefined
+
+            document.getElementById("background-container").style.visibility = "visible"
+            backgroundImage = new Image()
+            backgroundImage.addEventListener('load', function() {
+                backgroundCanvas.width = 500
+                backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
+                backgroundCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
+            })
+            backgroundImage.src = URL.createObjectURL(event.target.files[0])
+            backgroundInit()
+        }
+        
+        function loadObject(event) {
+            document.getElementById("object-container").style.visibility = "visible"
+            objectImage = new Image()
+            objectImage.addEventListener('load', function() {
+                objectCanvas.width = 500
+                objectCanvas.height = Number(500 * objectImage.height / objectImage.width)
+                objectCanvas.getContext("2d").drawImage(objectImage, 0, 0, objectCanvas.width, objectCanvas.height)
+            })
+            objectImage.src = URL.createObjectURL(event.target.files[0])
+            objectInit()
+        }
+
+        async function getResult() {
+            // if (backgroundImage === undefined && objectImage === undefined) {
+            //     alert("You must input both background and object images")
+            //     return
+            // }
+
+            // if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
+            //     objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
+            //     alert("You must input at least two lines for all axes")
+            //     return
+            // }
+
+            // if (backgroundHeight === undefined || backgroundHeightValue === undefined) {
+            //     alert("You must input height information")
+            //     return
+            // }
+
+            pythonEvent.dispatchEvent(python)
+        }
+    </script>
+    
+    <script type="py" src="./event_handler.py" config="pyscript.toml"></script>
+</head>
+</body>
+</html>
