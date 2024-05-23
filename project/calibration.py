@@ -12,9 +12,9 @@ class CameraParameter:
 
 def calibration(origin: np.ndarray, vanshing: VanishingPoint, height_info: HeightInformation) \
     -> CameraParameter:
-    Vx = vanshing.x # vanshing
-    Vy = vanshing.y # vanshing
-    Vz = vanshing.z # vanshing
+    Vx = vanshing.x
+    Vy = vanshing.y
+    Vz = vanshing.z
     
     L = height_info.length
     
@@ -38,9 +38,8 @@ def calibration(origin: np.ndarray, vanshing: VanishingPoint, height_info: Heigh
     R,_ = np.linalg.qr(QR)
     
     # compute t
-    Kinv_pz = np.dot(Kinv,np.array([[0,0,L,1]]))
-    omega2 = 1.0 #FIXME
-    t = omega2 * Kinv_pz - L * R[:,-1]
+    p0 = np.array([1,1,1])
+    t = np.dot(Kinv,p0)
     
     # return the camera parameter calibrated from 5 informations
     return CameraParameter(K,R,t)
