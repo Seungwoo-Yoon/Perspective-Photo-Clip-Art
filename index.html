@@ -6,6 +6,8 @@
     <style>
         .container {
             display: flex;
+            flex-basis: auto;
+            flex-grow: 1;
         }
         #background-container {
             visibility: hidden;
@@ -27,25 +29,27 @@
     <div class="container">
         <div id="background-container">
             <h3>Background Image</h1>
-            <canvas id="background-canvas" onclick="backgroundClick(event)"></canvas>
+            <canvas id="background-canvas"></canvas>
             <br>
             <input type="radio" name="background-axis" value="x-axis" checked> x-axis
             <input type="radio" name="background-axis" value="y-axis"> y-axis
             <input type="radio" name="background-axis" value="z-axis"> z-axis
             <input type="radio" name="background-axis" value="height"> height
+            <input type="button" name="background-axis" value="undo" onclick="backgroundUndo()">
             <br>
             <input type="number" id="background-height" onchange="backgroundHeightValueChange()" placeholder="height">
         </div>
 
         <div id="object-container">
             <h3>Object Image</h1>
-            <canvas id="object-canvas" onclick="objectClick(event)"></canvas>
+            <canvas id="object-canvas"></canvas>
             <br>
             <p>First, select the origin point</p>
             <input type="radio" name="object-axis" value="x-axis" checked> x-axis
             <input type="radio" name="object-axis" value="y-axis"> y-axis
             <input type="radio" name="object-axis" value="z-axis"> z-axis
             <input type="radio" name="object-axis" value="height"> height
+            <input type="button" name="object-axis" value="undo" onclick="objectUndo()">
             <br>
             <input type="number" id="object-height" onchange="objectHeightValueChange()" placeholder="height">
         </div>
@@ -53,7 +57,6 @@
 
     <div id="python-event"></div>
 
-    
     <input type="button" value="done" onclick="getResult()">
 
     <script>
@@ -64,12 +67,28 @@
             origin: 4,
             height: 5
         }
+        
 
         var backgroundCanvas = document.getElementById("background-canvas")
         var objectCanvas = document.getElementById("object-canvas")
-        
+
+        backgroundCanvas.addEventListener("mousedown", function(event){backgroundDown(event)}, false)
+        backgroundCanvas.addEventListener("mousemove", function(event){backgroundMove(event)}, false)
+
+        objectCanvas.addEventListener("mousedown", function(event){objectDown(event)}, false)
+        objectCanvas.addEventListener("mousemove", function(event){objectMove(event)}, false)
+
         var backgroundImage = undefined
         var objectImage = undefined
+
+        var backgroundImage_save = undefined
+        var objectImage_save = undefined
+
+        var backgroundImage_prev = []
+        var objectImage_prev = []
+
+        var backgroundAdded = []
+        var objectAdded = []
 
         var backgroundX = []
         var backgroundY = []
@@ -114,6 +133,7 @@
 
         function backgroundHeightValueChange() {
             backgroundHeightValue = Number(document.getElementById("background-height").value)
+            console.log(backgroundHeightValue)
         }
 
         function objectHeightValueChange() {
@@ -122,14 +142,11 @@
 
 
         // from https://gist.github.com/jwir3/d797037d2e1bf78a9b04838d73436197
-        function drawArrowhead(canvas, ends, radius) {
+        function drawArrowhead(canvas, ends, radius, color) {
             var context = canvas.getContext("2d")
 
             var from = ends[0]
             var to = ends[1]
-
-            var x_center = to[0]
-            var y_center = to[1]
 
             var angle
             var x
@@ -137,9 +154,13 @@
 
             context.beginPath()
 
+            margin = 0.2
             angle = Math.atan2(to[1] - from[1], to[0] - from[0])
-            x = radius * Math.cos(angle) + x_center
-            y = radius * Math.sin(angle) + y_center
+            var x_center = to[0] - radius * Math.cos(angle) * (1 - margin)
+            var y_center = to[1] - radius * Math.sin(angle) * (1 - margin)
+
+            x = to[0] + radius * Math.cos(angle) * margin
+            y = to[1] + radius * Math.sin(angle) * margin
 
             context.moveTo(x, y)
 
@@ -156,6 +177,8 @@
             context.lineTo(x, y)
 
             context.closePath()
+
+            context.fillStyle = color
 
             context.fill()
         }
@@ -176,11 +199,9 @@
 
             ctx.fillRect(point[0] - 3, point[1] - 3, 6, 6)
         }
-
-        function backgroundClick(event) {
-            var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+        
+        function returnMode(mode) {
             var backgroundMode
-
             switch(mode) {
                 case "x-axis":
                     backgroundMode = inputMode.x
@@ -195,103 +216,175 @@
                     backgroundMode = inputMode.height
                     break
             }
+            return backgroundMode
+        }
 
-            if (backgroundAxis != backgroundMode) {
-                backgroundP = null
-                backgroundAxis = backgroundMode
+        function backgroundUndo() {
+            if (backgroundP === null && backgroundImage_prev.length > 0) {
+                
+                switch(backgroundAdded.slice(-1)[0]) {
+                case inputMode.x:
+                    backgroundX.splice(-1, 1)
+                    break
+                case inputMode.y:
+                    backgroundY.splice(-1, 1)
+                    break
+                case inputMode.z:
+                    backgroundZ.splice(-1, 1)
+                    break
+                case inputMode.height:
+                    backgroundHeight = undefined
+                    backgroundHeightValue = undefined
+                    break
+                }
+                prev_image = backgroundImage_prev.slice(-1)[0]
+                backgroundCanvas.getContext("2d").putImageData(prev_image, 0, 0)
+
+                backgroundImage_prev.splice(-1, 1)
+                backgroundAdded.splice(-1, 1)
             }
+        }
 
+        function backgroundDown(event) {
+            var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+            var backgroundMode = returnMode(mode)
             if (backgroundP === null) {
-                backgroundP = [event.offsetX, event.offsetY]
-            } else {
+                if (backgroundMode != inputMode.height || (backgroundMode == inputMode.height && backgroundHeight === undefined)) {
+                    backgroundP = [event.offsetX, event.offsetY]
+
+                    console.log('Start point clicked')
+
+                    save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
+                    backgroundImage_save = save_img
+                    backgroundImage_prev.push(save_img)
+                }
+                else {
+                    console.log('Only one height can be selected!')
+                }
+            } 
+            else {    
+                var backgroundQ = [event.offsetX, event.offsetY]
+                var save_info = false
+                
                 switch(backgroundMode) {
-                    case inputMode.x:
-                        backgroundX.push([backgroundP, [event.offsetX, event.offsetY]])
-                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "red")
-                        backgroundP = null
-                        break
-                    case inputMode.y:
-                        backgroundY.push([backgroundP, [event.offsetX, event.offsetY]])
-                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "green")
-                        backgroundP = null
-                        break
-                    case inputMode.z:
-                        backgroundZ.push([backgroundP, [event.offsetX, event.offsetY]])
-                        drawLine(backgroundCanvas, [backgroundP, [event.offsetX, event.offsetY]], "blue")
-                        backgroundP = null
-                        break
-                    case inputMode.height:
-                        if (backgroundHeight === undefined) {
-                            backgroundHeight = [backgroundP, [event.offsetX, event.offsetY]]
-                            drawLine(backgroundCanvas, backgroundHeight, "black")
-                            drawArrowhead(backgroundCanvas, backgroundHeight, 10)
-                        }
-                        break
+                case inputMode.x:
+                    backgroundX.push([backgroundP, backgroundQ])
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "red")
+                    break
+                case inputMode.y:
+                    backgroundY.push([backgroundP, backgroundQ])
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "green")
+                    break
+                case inputMode.z:
+                    backgroundZ.push([backgroundP, backgroundQ])
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "blue")
+                    break
+                case inputMode.height:
+                    if (backgroundHeight === undefined) {
+                        backgroundHeight = [backgroundP, backgroundQ]
+                        drawLine(backgroundCanvas, backgroundHeight, "yellow")
+                        drawArrowhead(backgroundCanvas, backgroundHeight, 10, "yellow")
+                    }
+                    break
+                }
+
+                backgroundAdded.push(backgroundMode)
+                backgroundImage_save = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
+                
+                backgroundP = null
+                console.log('End point clicked, Line Drawn')
+            }
+        }
+
+        function backgroundMove(event) {
+            if (backgroundP !== null) {
+                var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+                var backgroundMode = returnMode(mode)
+                var backgroundQ = [event.offsetX, event.offsetY]
+                
+                backgroundCanvas.getContext("2d").putImageData(backgroundImage_save, 0, 0)
+
+                switch(backgroundMode) {
+                case inputMode.x:
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "red")
+                    break
+                case inputMode.y:
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "green")
+                    break
+                case inputMode.z:
+                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "blue")
+                    break
+                case inputMode.height:
+                    backgroundHeight_temp = [backgroundP, backgroundQ]
+                    drawLine(backgroundCanvas, backgroundHeight_temp, "yellow")
+                    drawArrowhead(backgroundCanvas, backgroundHeight_temp, 10, "yellow")
+                    break
                 }
             }
         }
 
-        function objectClick(event) {
-            var mode = document.querySelector("input[name=\"object-axis\"]:checked").value
-            var objectMode
-
-            switch(mode) {
-                case "x-axis":
-                    objectMode = inputMode.x
+        function objectDown(event) {
+            if (objectP === null) {
+                objectP = [event.offsetX, event.offsetY]
+                console.log('Start point clicked')
+                objectImage_save = objectCanvas.getContext("2d").getImageData(0, 0, objectImage.width, objectImage.height)
+            } 
+            else { 
+                var mode = document.querySelector("input[name=\"object-axis\"]:checked").value
+                var objectMode = returnMode(mode)
+                var objectQ = [event.offsetX, event.offsetY]
+                
+                switch(objectMode) {
+                case inputMode.x:
+                    objectX.push([objectP, objectQ])
+                    drawLine(objectCanvas, [objectP, objectQ], "red")
                     break
-                case "y-axis":
-                    objectMode = inputMode.y
+                case inputMode.y:
+                    objectY.push([objectP, objectQ])
+                    drawLine(objectCanvas, [objectP, objectQ], "green")
                     break
-                case "z-axis":
-                    objectMode = inputMode.z
+                case inputMode.z:
+                    objectZ.push([objectP, objectQ])
+                    drawLine(objectCanvas, [objectP, objectQ], "blue")
                     break
-                case "height":
-                    objectMode = inputMode.height
-                    break
-            }
-
-            if (objectOrigin === undefined) {
-                objectMode = inputMode.origin
-            }
-
-
-            if (objectAxis != objectMode) {
-                objectP = null
-                objectAxis = objectMode
-            }
-
-
-            if (objectMode == inputMode.origin) {
-                objectOrigin = [event.offsetX, event.offsetY]
-                drawPoint(objectCanvas, objectOrigin, "black")
-            } else {
-                if (objectP === null) {
-                    objectP = [event.offsetX, event.offsetY]
-                } else {
-                    switch(objectMode) {
-                        case inputMode.x:
-                            objectX.push([objectP, [event.offsetX, event.offsetY]])
-                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "red")
-                            objectP = null
-                            break
-                        case inputMode.y:
-                            objectY.push([objectP, [event.offsetX, event.offsetY]])
-                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "green")
-                            objectP = null
-                            break
-                        case inputMode.z:
-                            objectZ.push([objectP, [event.offsetX, event.offsetY]])
-                            drawLine(objectCanvas, [objectP, [event.offsetX, event.offsetY]], "blue")
-                            objectP = null
-                            break
-                        case inputMode.height:
-                            if (objectHeight === undefined) {
-                                objectHeight = [objectP, [event.offsetX, event.offsetY]]
-                                drawLine(objectCanvas, objectHeight, "black")
-                                drawArrowhead(objectCanvas, objectHeight, 10)
-                            }
-                            break
+                case inputMode.height:
+                    if (objectHeight === undefined) {
+                        objectHeight = [objectP, objectQ]
+                        drawLine(objectCanvas, objectHeight, "black")
+                        drawArrowhead(objectCanvas, objectHeight, 10)
                     }
+                    break
+                }
+
+                objectP = null
+                objectImage_save = objectCanvas.getContext("2d").getImageData(0, 0, objectImage.width, objectImage.height)
+                console.log('End point clicked, Line Drawn')
+            }
+        }
+
+        function objectMove(event) {
+            if (objectP !== null) {
+                var mode = document.querySelector("input[name=\"object-axis\"]:checked").value
+                var objectMode = returnMode(mode)
+                var objectQ = [event.offsetX, event.offsetY]
+                
+                objectCanvas.getContext("2d").putImageData(objectImage_save, 0, 0)
+
+                switch(objectMode) {
+                case inputMode.x:
+                    drawLine(objectCanvas, [objectP, objectQ], "red")
+                    break
+                case inputMode.y:
+                    drawLine(objectCanvas, [objectP, objectQ], "green")
+                    break
+                case inputMode.z:
+                    drawLine(objectCanvas, [objectP, objectQ], "blue")
+                    break
+                case inputMode.height:
+                    objectHeight = [objectP, objectQ]
+                    drawLine(objectCanvas, objectHeight, "black")
+                    drawArrowhead(objectCanvas, objectHeight, 10)
+                    break
                 }
             }
         }
@@ -344,6 +437,6 @@
     </script>
     
     <script type="py" src="./event_handler.py" config="pyscript.toml"></script>
-</head>
 </body>
+</head>
 </html>
