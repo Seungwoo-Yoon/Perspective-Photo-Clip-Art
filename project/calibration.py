@@ -14,5 +14,7 @@ def calibration(origin: np.ndarray, vanshing: VanishingPoint, height_info: Heigh
     -> CameraParameter:
     # TODO
     # return the camera parameter calibrated from 5 informations
+
+    # raise NotImplementedError()
+
     
-    raise NotImplementedError()

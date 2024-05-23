@@ -264,29 +264,31 @@
             } 
             else {    
                 var backgroundQ = [event.offsetX, event.offsetY]
-                var save_info = false
-                
+                var line = [backgroundP, backgroundQ]
+            
                 switch(backgroundMode) {
                 case inputMode.x:
-                    backgroundX.push([backgroundP, backgroundQ])
+                    backgroundX.push(line)
                     drawLine(backgroundCanvas, [backgroundP, backgroundQ], "red")
                     break
                 case inputMode.y:
-                    backgroundY.push([backgroundP, backgroundQ])
+                    backgroundY.push(line)
                     drawLine(backgroundCanvas, [backgroundP, backgroundQ], "green")
                     break
                 case inputMode.z:
-                    backgroundZ.push([backgroundP, backgroundQ])
+                    backgroundZ.push(line)
                     drawLine(backgroundCanvas, [backgroundP, backgroundQ], "blue")
                     break
                 case inputMode.height:
                     if (backgroundHeight === undefined) {
-                        backgroundHeight = [backgroundP, backgroundQ]
+                        backgroundHeight = line
                         drawLine(backgroundCanvas, backgroundHeight, "yellow")
                         drawArrowhead(backgroundCanvas, backgroundHeight, 10, "yellow")
                     }
                     break
                 }
+
+                console.log(line)
 
                 backgroundAdded.push(backgroundMode)
                 backgroundImage_save = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
@@ -395,8 +397,11 @@
             document.getElementById("background-container").style.visibility = "visible"
             backgroundImage = new Image()
             backgroundImage.addEventListener('load', function() {
-                backgroundCanvas.width = 500
-                backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
+                // backgroundCanvas.width = 500
+                // backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
+
+                backgroundCanvas.width = backgroundImage.width
+                backgroundCanvas.height = backgroundImage.height
                 backgroundCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
             })
             backgroundImage.src = URL.createObjectURL(event.target.files[0])
@@ -416,21 +421,21 @@
         }
 
         async function getResult() {
-            // if (backgroundImage === undefined && objectImage === undefined) {
-            //     alert("You must input both background and object images")
-            //     return
-            // }
+            if (backgroundImage === undefined || objectImage === undefined) {
+                alert("You must input both background and object images")
+                return
+            }
 
-            // if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
-            //     objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
-            //     alert("You must input at least two lines for all axes")
-            //     return
-            // }
+            if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
+                objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
+                alert("You must input at least two lines for all axes")
+                return
+            }
 
-            // if (backgroundHeight === undefined || backgroundHeightValue === undefined) {
-            //     alert("You must input height information")
-            //     return
-            // }
+            if (backgroundHeight === undefined || backgroundHeightValue === undefined) {
+                alert("You must input height information")
+                return
+            }
 
             pythonEvent.dispatchEvent(python)
         }
