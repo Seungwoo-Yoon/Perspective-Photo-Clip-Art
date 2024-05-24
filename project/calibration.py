@@ -15,8 +15,7 @@ def calibration(origin: np.ndarray, vanshing: VanishingPoint, height_info: Heigh
     Vx = vanshing.x
     Vy = vanshing.y
     Vz = vanshing.z
-    
-    L = height_info.length
+    p0 = np.array([10,10,10]) #height_info.p0 #FIXME
     
     # compute K
     A = np.array([[Vx[0]*Vy[0]+Vx[1]*Vy[1], Vx[0]+Vy[0], Vx[1]+Vy[1],1],
@@ -38,9 +37,7 @@ def calibration(origin: np.ndarray, vanshing: VanishingPoint, height_info: Heigh
     R,_ = np.linalg.qr(QR)
     
     # compute t
-    p0 = np.array([1,1,1])
     t = np.dot(Kinv,p0)
     
     # return the camera parameter calibrated from 5 informations
     return CameraParameter(K,R,t)
-    # raise NotImplementedError()
