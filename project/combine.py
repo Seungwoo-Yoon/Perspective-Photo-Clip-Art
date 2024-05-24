@@ -26,7 +26,7 @@ def mask(image: np.ndarray):
 
 def overwrite(bg: np.ndarray, obj: np.ndarray, 
               P_background: CameraParameter, P_target: CameraParameter, obj_offset: np.ndarray) -> np.ndarray:
-    #obj_offset : np.array([x_offset, y_offset])
+    # |obj_offset : np.array([x_offset, y_offset])
     # overwrite object on the background
     if not obj_offset.shape != (2,):
         raise ValueError("obj_offset must be a numpy with 2 elements")
@@ -40,9 +40,9 @@ def overwrite(bg: np.ndarray, obj: np.ndarray,
     # Overlay
     bg_img = bg.copy()
     x_offset, y_offset = obj_offset
-    
-    mapped_obj_height, mapped_obj_width = mapped_obj.shpoe
-    bg_img_height, bg_img_width = bg_img.shpoe
+    # -set range of interest
+    mapped_obj_height, mapped_obj_width = mapped_obj.shape
+    bg_img_height, bg_img_width = bg_img.shape
     x_end = x_offset + mapped_obj_width
     y_end = y_offset + mapped_obj_height
     x_end = min(x_end, bg_img_width)
@@ -51,7 +51,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray,
     y_start = max(y_offset, 0)
     obj_x_start = x_start - x_offset
     obj_y_start = y_start - y_offset
-    
+    # -image clipping
     obj_valid = mapped_obj[obj_y_start:y_end - y_offset,
                            obj_x_start:x_end - x_offset]
     mask_valid = mask[obj_y_start:y_end - y_offset,
