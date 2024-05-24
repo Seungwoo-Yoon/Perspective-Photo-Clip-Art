@@ -17,12 +17,19 @@
             visibility: hidden;
             margin: 10px;
         }
+
+        #result {
+            visibility: hidden;
+        }
     </style>
     <script type="module" src="https://pyscript.net/releases/2024.5.1/core.js"></script>
 <body>
     <h1>Perspective Photo Clip Art</h1>
-    <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
-    <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+
+    <div id="file-container">
+        <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
+        <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+    </div>
 
     <div class="container">
         <div id="background-container">
@@ -53,8 +60,15 @@
 
     <div id="python-event"></div>
 
-    
-    <input type="button" value="done" onclick="getResult()">
+    <input type="button" value="done" id="done" onclick="getResult()">
+
+    <div id="result">
+        <canvas id="result-canvas" onclick="addObject(event)"></canvas>
+        <label>
+        <input type="range" id="rotation" min="-180" max="180" value="0" step="1" onchange="rotationChange(event)">
+        Rotation: <output id="rotation-output">0</output>°
+        </label>
+    </div>
 
     <script>
         const inputMode = {
@@ -67,9 +81,13 @@
 
         var backgroundCanvas = document.getElementById("background-canvas")
         var objectCanvas = document.getElementById("object-canvas")
+        var resultCanvas = document.getElementById("result-canvas")
         
         var backgroundImage = undefined
         var objectImage = undefined
+        var backgroundImageBase64 = undefined
+        var objectImageBase64 = undefined
+        var newImage = undefined
 
         var backgroundX = []
         var backgroundY = []
@@ -77,6 +95,7 @@
         var backgroundHeight = undefined
         var backgroundHeightValue = undefined
         var backgroundAxis = inputMode.x
+        var backgroundOrigin = undefined
         var backgroundP = null
         
         var objectX = []
@@ -88,8 +107,20 @@
         var objectOrigin = undefined
         var objectP = null
 
+        var rotation = 0
+
         const python = new Event("python")
         const pythonEvent = document.getElementById("python-event")
+
+        function addObject(event) {
+            backgroundOrigin = [event.offsetX, event.offsetY]
+            pythonEvent.dispatchEvent(python)
+        }
+
+        function rotationChange(event) {
+            rotation = event.target.value
+            document.getElementById("rotation-output").textContent = event.target.value
+        }
 
         function backgroundInit() {
             backgroundX = []
@@ -308,6 +339,12 @@
             })
             backgroundImage.src = URL.createObjectURL(event.target.files[0])
             backgroundInit()
+
+            var reader  = new FileReader()
+            reader.readAsDataURL(event.target.files[0])
+            reader.onloadend = function () {
+                backgroundImageBase64 = reader.result
+            }
         }
         
         function loadObject(event) {
@@ -320,6 +357,12 @@
             })
             objectImage.src = URL.createObjectURL(event.target.files[0])
             objectInit()
+
+            var reader  = new FileReader()
+            reader.readAsDataURL(event.target.files[0])
+            reader.onloadend = function () {
+                objectImageBase64 = reader.result
+            }
         }
 
         async function getResult() {
@@ -339,7 +382,17 @@
             //     return
             // }
 
-            pythonEvent.dispatchEvent(python)
+            document.getElementById("background-container").style.display = "none"
+            document.getElementById("object-container").style.display = "none"
+            document.getElementById("done").style.display = "none"
+            document.getElementById("file-container").style.display = "none"
+            document.getElementById("result").style.visibility = "visible"
+
+            resultCanvas.width = 500
+            resultCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
+            resultCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
+
+            newImage = backgroundImage
         }
     </script>
     
