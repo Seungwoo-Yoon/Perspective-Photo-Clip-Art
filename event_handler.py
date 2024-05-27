@@ -11,6 +11,8 @@ from pyodide.ffi import create_proxy
 
 from height import *
 from vanishing_point import *
+from calibration import *
+from combine import *
 
 
 python_event_object = document.getElementById('python-event')
@@ -43,13 +45,18 @@ def event_handler(event):
 
     rotation = js.rotation
 
-    bg_vp = VanishingPoint.generate(background_x, background_y, background_z)
-    obj_vp = VanishingPoint.generate(object_x, object_y, object_z)
+    # bg_vp = VanishingPoint(background_x, background_y, background_z)
+    # obj_vp = VanishingPoint(object_x, object_y, object_z)
     
-    bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)
-    obj_h = HeightInformation(object_height[0], object_height[1], object_height_value)
+    # bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)
+    # obj_h = HeightInformation(object_height[0], object_height[1], object_height_value)
 
-    # bg_vp.rotate(rotation)
+    # P_bg = calibration(background_origin, bg_vp, bg_h)
+    # P_obj = calibration(object_origin, obj_vp, obj_h)
+
+    # new_img = overwrite(background_img, object_img, P_bg, P_obj, object_origin)
+    cv2.imshow('img', background_img)
+
 
 
 proxy = create_proxy(event_handler)
