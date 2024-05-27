@@ -21,6 +21,7 @@
         }
     </style>
     <script type="module" src="https://pyscript.net/releases/2024.5.1/core.js"></script>
+    <script async src="https://docs.opencv.org/4.5.4/opencv.js" type="text/javascript"></script>
 <body>
     <h1>Perspective Photo Clip Art</h1>
     <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
@@ -29,6 +30,8 @@
     <div class="container">
         <div id="background-container">
             <h3>Background Image</h1>
+            <span class="background-alert-text"></span>
+            <br>
             <canvas id="background-canvas"></canvas>
             <br>
             <input type="radio" name="background-axis" value="x-axis" checked> x-axis
@@ -36,6 +39,9 @@
             <input type="radio" name="background-axis" value="z-axis"> z-axis
             <input type="radio" name="background-axis" value="height"> height
             <input type="button" name="background-axis" value="undo" onclick="backgroundUndo()">
+            <!--input type="button" name="background-axis" value="recommended corners" onclick="backgroundCornerDetection()"-->
+            <input type="button" name="background-axis" value="recommended lines" id="background-recommend" onclick="backgroundLineDetection()">
+            <input type="button" name="background-axis" value="back to canvas" id="background-return" onclick="backToCanvas()">
             <br>
             <input type="number" id="background-height" onchange="backgroundHeightValueChange()" placeholder="height">
         </div>
@@ -90,6 +96,10 @@
         var backgroundAdded = []
         var objectAdded = []
 
+        var backgroundAlert = document.getElementsByClassName("background-alert-text")[0]
+        var background_areLinesRecommended = false
+        var background_recommendedLines = undefined
+
         var backgroundX = []
         var backgroundY = []
         var backgroundZ = []
@@ -118,6 +128,12 @@
             backgroundHeightValue = undefined
             backgroundAxis = inputMode.x
             backgroundP = null
+
+            background_areLinesRecommended = false
+            background_recommendedLines = undefined
+
+            document.getElementById("background-recommend").style.visibility = "visible"
+            document.getElementById("background-return").style.visibility = "hidden"
         }
 
         function objectInit() {
@@ -133,7 +149,6 @@
 
         function backgroundHeightValueChange() {
             backgroundHeightValue = Number(document.getElementById("background-height").value)
-            console.log(backgroundHeightValue)
         }
 
         function objectHeightValueChange() {
@@ -201,105 +216,206 @@
         }
         
         function returnMode(mode) {
-            var backgroundMode
+            // Can be used for both background and object
+            var axisMode
             switch(mode) {
                 case "x-axis":
-                    backgroundMode = inputMode.x
+                    axisMode = inputMode.x
                     break
                 case "y-axis":
-                    backgroundMode = inputMode.y
+                    axisMode = inputMode.y
                     break
                 case "z-axis":
-                    backgroundMode = inputMode.z
+                    axisMode = inputMode.z
                     break
                 case "height":
-                    backgroundMode = inputMode.height
+                    axisMode = inputMode.height
                     break
             }
-            return backgroundMode
+            return axisMode
+        }
+
+        function setBackgroundAlertColor(backgroundMode) {
+            switch(backgroundMode) {
+            case inputMode.x:
+                backgroundAlert.style.color = "red"
+                break
+            case inputMode.y:
+                backgroundAlert.style.color = "green"
+                break
+            case inputMode.z:
+                backgroundAlert.style.color = "blue"
+                break
+            case inputMode.height:
+                backgroundAlert.style.color = "orange"
+            }
         }
 
         function backgroundUndo() {
-            if (backgroundP === null && backgroundImage_prev.length > 0) {
-                
-                switch(backgroundAdded.slice(-1)[0]) {
+            if (backgroundP === null && backgroundImage_prev.length > 0 && !background_areLinesRecommended) {
+                backgroundMode = backgroundAdded.slice(-1)[0]
+                setBackgroundAlertColor(backgroundMode)
+                switch(backgroundMode) {
                 case inputMode.x:
+                    backgroundAlert.innerText = 'x-axis deleted'
                     backgroundX.splice(-1, 1)
                     break
                 case inputMode.y:
                     backgroundY.splice(-1, 1)
+                    backgroundAlert.innerText = 'y-axis deleted'
                     break
                 case inputMode.z:
                     backgroundZ.splice(-1, 1)
+                    backgroundAlert.innerText = 'z-axis deleted'
                     break
                 case inputMode.height:
                     backgroundHeight = undefined
                     backgroundHeightValue = undefined
+                    backgroundAlert.innerText = 'Height deleted'
                     break
                 }
                 prev_image = backgroundImage_prev.slice(-1)[0]
-                backgroundCanvas.getContext("2d").putImageData(prev_image, 0, 0)
+                ctx = backgroundCanvas.getContext("2d")
+                ctx.putImageData(prev_image, 0, 0)
+                backgroundImage_save = ctx.getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
 
                 backgroundImage_prev.splice(-1, 1)
                 backgroundAdded.splice(-1, 1)
+
+                console.log(backgroundAdded)
             }
         }
 
         function backgroundDown(event) {
-            var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
-            var backgroundMode = returnMode(mode)
-            if (backgroundP === null) {
-                if (backgroundMode != inputMode.height || (backgroundMode == inputMode.height && backgroundHeight === undefined)) {
-                    backgroundP = [event.offsetX, event.offsetY]
+            if (background_areLinesRecommended) {
+                const rect = backgroundCanvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
 
-                    console.log('Start point clicked')
+                clickedLineIndex = closestLineIndex(mouseX, mouseY)
+                if (clickedLineIndex != -1) {
+                    console.log('here')
+                    var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+                    var backgroundMode = returnMode(mode)
+                    color = inputColor(backgroundMode)
+                    
+                    ctx = backgroundCanvas.getContext('2d')
+                    ctx.putImageData(backgroundImage_save, 0, 0)
+                    // console.log(background_recommendedLines)
+                    // console.log(clickedLineIndex)
+                    nearest_line = background_recommendedLines[clickedLineIndex]
 
-                    save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
-                    backgroundImage_save = save_img
-                    backgroundImage_prev.push(save_img)
-                }
-                else {
-                    console.log('Only one height can be selected!')
-                }
-            } 
-            else {    
-                var backgroundQ = [event.offsetX, event.offsetY]
-                var line = [backgroundP, backgroundQ]
-            
-                switch(backgroundMode) {
-                case inputMode.x:
-                    backgroundX.push(line)
-                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "red")
-                    break
-                case inputMode.y:
-                    backgroundY.push(line)
-                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "green")
-                    break
-                case inputMode.z:
-                    backgroundZ.push(line)
-                    drawLine(backgroundCanvas, [backgroundP, backgroundQ], "blue")
-                    break
-                case inputMode.height:
-                    if (backgroundHeight === undefined) {
-                        backgroundHeight = line
-                        drawLine(backgroundCanvas, backgroundHeight, "yellow")
-                        drawArrowhead(backgroundCanvas, backgroundHeight, 10, "yellow")
+                    var color = undefined
+                    if (backgroundMode == inputMode.height) {
+                        if (backgroundHeight === undefined) {
+                            color = "orange"
+                            if (nearest_line[1] > nearest_line[3])
+                                backgroundHeight = [[nearest_line[0], nearest_line[1]], [nearest_line[2], nearest_line[3]]]
+                            else 
+                                backgroundHeight = [[nearest_line[2], nearest_line[3]], [nearest_line[0], nearest_line[1]]]
+                            drawLines(ctx, [nearest_line], color)
+                            drawArrowhead(backgroundCanvas, backgroundHeight, 10, "orange")
+
+                            backgroundAdded.push(backgroundMode)
+                            backgroundImage_prev.push(backgroundImage_save)
+                            backgroundImage_save = ctx.getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
+                        }
                     }
-                    break
+                    else {           
+                    switch(backgroundMode) {
+                        case inputMode.x:
+                            color = "red"
+                            backgroundX.push(nearest_line)
+                            break
+                        case inputMode.y:
+                            color = "green"
+                            backgroundY.push(nearest_line)
+                            break
+                        case inputMode.z:
+                            color = "blue"
+                            backgroundZ.push(nearest_line)
+                            break
+                        }
+                        drawLines(ctx, [nearest_line], color)
+
+                        backgroundAdded.push(backgroundMode)
+                        backgroundImage_prev.push(backgroundImage_save)
+                        backgroundImage_save = ctx.getImageData(0, 0, backgroundImage.width, backgroundImage.height) 
+                    }
+
+                    background_areLinesRecommended = false
+                    
+                    console.log(backgroundAdded)
+
+                    document.getElementById("background-recommend").style.visibility = "visible"
+                    document.getElementById("background-return").style.visibility = "hidden"
                 }
+            }
+            else {
+                var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+                var backgroundMode = returnMode(mode)
+                setBackgroundAlertColor(backgroundMode)
+                if (backgroundP === null) {
+                    if (backgroundMode != inputMode.height || (backgroundMode == inputMode.height && backgroundHeight === undefined)) {
+                        backgroundP = [event.offsetX, event.offsetY]
+                        
+                        backgroundAlert.innerText = 'Start point clicked'
 
-                console.log(line)
-
-                backgroundAdded.push(backgroundMode)
-                backgroundImage_save = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
+                        save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
+                        backgroundImage_save = save_img
+                        backgroundImage_prev.push(save_img)
+                    }
+                    else {
+                        backgroundAlert.innerText = "Height can be selected only once!"
+                        backgroundAlert.style.color = "red"
+                    }
+                } 
+                else {    
+                    var backgroundQ = [event.offsetX, event.offsetY]
+                    var line = [backgroundP, backgroundQ]
                 
-                backgroundP = null
-                console.log('End point clicked, Line Drawn')
+                    switch(backgroundMode) {
+                    case inputMode.x:
+                        backgroundX.push(line)
+                        drawLine(backgroundCanvas, [backgroundP, backgroundQ], "red")
+                        break
+                    case inputMode.y:
+                        backgroundY.push(line)
+                        drawLine(backgroundCanvas, [backgroundP, backgroundQ], "green")
+                        break
+                    case inputMode.z:
+                        backgroundZ.push(line)
+                        drawLine(backgroundCanvas, [backgroundP, backgroundQ], "blue")
+                        break
+                    case inputMode.height:
+                        if (backgroundHeight === undefined) {
+                            backgroundHeight = line
+                            drawLine(backgroundCanvas, backgroundHeight, "orange")
+                            drawArrowhead(backgroundCanvas, backgroundHeight, 10, "orange")
+                        }
+                        break
+                    }
+
+                    console.log(line)
+
+                    backgroundAdded.push(backgroundMode)
+                    console.log(backgroundAdded)
+                    backgroundImage_save = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)    
+                    
+                    backgroundP = null
+                    backgroundAlert.innerText = 'End point clicked, Line Drawn'
+                }
             }
         }
 
         function backgroundMove(event) {
-            if (backgroundP !== null) {
+            if (background_areLinesRecommended) {
+                const rect = backgroundCanvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+                highlightClosestLine(canvas, mouseX, mouseY);
+            }
+            else if (backgroundP !== null) {
                 var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
                 var backgroundMode = returnMode(mode)
                 var backgroundQ = [event.offsetX, event.offsetY]
@@ -318,10 +434,260 @@
                     break
                 case inputMode.height:
                     backgroundHeight_temp = [backgroundP, backgroundQ]
-                    drawLine(backgroundCanvas, backgroundHeight_temp, "yellow")
-                    drawArrowhead(backgroundCanvas, backgroundHeight_temp, 10, "yellow")
+                    drawLine(backgroundCanvas, backgroundHeight_temp, "orange")
+                    drawArrowhead(backgroundCanvas, backgroundHeight_temp, 10, "orange")
                     break
                 }
+            }
+        }
+        
+        function grayscale(imageData) {
+            const grayImageData = new ImageData(imageData.width, imageData.height);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const avg = (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 3;
+                grayImageData.data[i] = avg;
+                grayImageData.data[i + 1] = avg;
+                grayImageData.data[i + 2] = avg;
+                grayImageData.data[i + 3] = imageData.data[i + 3];
+            }
+            return grayImageData;
+        }
+        function applyCannyEdgeDetection(grayImageData) {
+            // Convert ImageData to cv.Mat
+            const src = cv.matFromImageData(grayImageData);
+
+            // Apply Canny edge detection
+            const dst = new cv.Mat();
+            cv.Canny(src, dst, 300, 400, 3, false);
+
+            // Convert the result back to ImageData
+            const edgesImageData = new ImageData(dst.cols, dst.rows);
+            for (let i = 0; i < dst.data.length; i++) {
+                edgesImageData.data[i * 4] = dst.data[i];
+                edgesImageData.data[i * 4 + 1] = dst.data[i];
+                edgesImageData.data[i * 4 + 2] = dst.data[i];
+                edgesImageData.data[i * 4 + 3] = 255; // Fully opaque
+            }
+            // Release memory
+            src.delete();
+            dst.delete();
+
+            return edgesImageData;
+        }
+        
+        function applyHoughTransform(edgesImageData) {
+            // Convert ImageData to cv.Mat
+            const src = cv.matFromImageData(edgesImageData);
+            cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+            // Apply Hough Transform
+            const lines = new cv.Mat();
+            const rho = 1; // Distance resolution in pixels
+            const theta = Math.PI / 180; // Angle resolution in radians
+            const threshold = 100; // Accumulator threshold parameter, you can adjust this
+            const minLineLength = 30; // Minimum line length. Line segments shorter than this are rejected
+            const maxLineGap = 1; // Maximum allowed gap between points on the same line to link them
+
+            cv.HoughLinesP(src, lines, rho, theta, threshold, minLineLength, maxLineGap);
+
+            const linesArray = [];
+            for (let i = 0; i < lines.rows; ++i) {
+                const x1 = lines.data32S[i * 4];
+                const y1 = lines.data32S[i * 4 + 1];
+                const x2 = lines.data32S[i * 4 + 2];
+                const y2 = lines.data32S[i * 4 + 3];
+                linesArray.push([x1, y1, x2, y2]);
+            }
+            src.delete();
+            lines.delete();
+            return linesArray;
+        }
+
+        function drawLines(ctx, lines, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            for (const line of lines) {
+                const [x1, y1, x2, y2] = line;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+
+        function backgroundLineDetection() {
+            background_areLinesRecommended = true
+            document.getElementById("background-recommend").style.visibility = "hidden"
+            document.getElementById("background-return").style.visibility = "visible"
+            
+            canvas = document.getElementById('background-canvas')
+            ctx = canvas.getContext("2d")
+            if (background_recommendedLines === undefined) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const grayImageData = grayscale(imageData);
+                const edgesImageData = applyCannyEdgeDetection(grayImageData);
+                // ctx.putImageData(edgesImageData, 0, 0)
+                const lines = applyHoughTransform(edgesImageData);
+
+                background_recommendedLines = lines
+            }
+            save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
+            backgroundImage_save = save_img
+            // backgroundImage_prev.push(save_img)
+
+            drawLines(ctx, background_recommendedLines, 'yellow');
+
+            backgroundAlert.style.color = "black"
+            backgroundAlert.innerText = 'These are some recommended lines'
+        }
+
+        function backToCanvas() {
+            ctx = backgroundCanvas.getContext("2d")
+            ctx.putImageData(backgroundImage_save, 0, 0)
+
+            document.getElementById("background-recommend").style.visibility = "visible"
+            document.getElementById("background-return").style.visibility = "hidden"
+
+            background_areLinesRecommended = false
+        }
+        
+        function pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const l2 = dx * dx + dy * dy;
+            if (l2 === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+            var t = ((px - x1) * dx + (py - y1) * dy) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const x = x1 + t * dx;
+            const y = y1 + t * dy;
+            return Math.sqrt((px - x) ** 2 + (py - y) ** 2);
+        }
+
+        function inputColor(mode) {
+            var color = undefined
+            switch(mode) {
+            case inputMode.x:
+                color = "red"
+                break
+            case inputMode.y:
+                color = "green"
+                break
+            case inputMode.z:
+                color = "blue"
+                break
+            case inputMode.height:
+                color="orange"
+                break
+            }
+            return color
+        }
+
+        function closestLineIndex(mouseX, mouseY) {
+            highlightedLineIndex = -1;
+            let minDistance = Infinity;
+
+            for (let i = 0; i < background_recommendedLines.length; i++) {
+                const [x1, y1, x2, y2] = background_recommendedLines[i];
+                const distance = pointToLineDistance(mouseX, mouseY, x1, y1, x2, y2);
+                if (distance < 5 && distance < minDistance) {
+                    minDistance = distance;
+                    highlightedLineIndex = i;
+                }
+            }
+            return highlightedLineIndex
+        }
+
+        function highlightClosestLine(canvas, mouseX, mouseY) {
+            var mode = document.querySelector("input[name=\"background-axis\"]:checked").value
+            var backgroundMode = returnMode(mode)
+            color = inputColor(backgroundMode)
+            
+            ctx = canvas.getContext('2d')
+            ctx.putImageData(backgroundImage_save, 0, 0)
+            drawLines(ctx, background_recommendedLines, "yellow");
+            highlightedLineIndex = closestLineIndex(mouseX, mouseY)
+            nearest_line = background_recommendedLines[highlightedLineIndex]
+            if (highlightedLineIndex != -1) 
+                drawLines(ctx, [nearest_line], color);
+        }
+        
+
+        // This is not very efficient to use
+        function backgroundCornerDetection() {
+            try {
+                canvas = document.getElementById('background-canvas')
+                console.log('Canvas element:', canvas);
+                const src = cv.imread(canvas);
+                if (src.empty()) {
+                    throw new Error('Failed to read image data from canvas.');
+                }
+                console.log('Image read into cv.Mat object.');
+
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                console.log('Image converted to grayscale.');
+
+                const corners = new cv.Mat();
+                cv.cornerHarris(gray, corners, 3, 3, 0.03);
+                console.log('Harris Corner Detection applied.');
+
+                const dst = new cv.Mat();
+                cv.normalize(corners, dst, 0, 255, cv.NORM_MINMAX);
+                console.log('Corners normalized.');
+                
+                const threshold = 80
+                
+                function isCloseToRed(r, g, b) {
+                    // Define threshold values for red-like colors in RGB space
+                    const redThreshold = 100;
+                    const greenThreshold = 80;
+                    const blueThreshold = 80;
+
+                    // Check if the pixel color is within the thresholds for red-like colors
+                    return r > redThreshold && g < greenThreshold && b < blueThreshold;
+                }
+
+                function isCloseToRedWithSurroundings(canvas, x, y, radius) {
+                    // Get the canvas context
+                    const ctx = canvas.getContext('2d');
+
+                    // Define a region around the point
+                    const imageData = ctx.getImageData(x - radius, y - radius, 2 * radius, 2 * radius);
+                    const data = imageData.data;
+
+                    // Iterate over the pixels in the region
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+
+                        // Check if the pixel color is close to red-like
+                        if (isCloseToRed(r, g, b)) {
+                            return true; // Return true if at least one red-like pixel is found
+                        }
+                    }
+                }
+
+                for (let i = 0; i < dst.rows; i++) {
+                    for (let j = 0; j < dst.cols; j++) {
+                        if (dst.floatAt(i, j) > threshold) {
+                            const isRedLike = isCloseToRedWithSurroundings(canvas, j, i, 2);
+
+                            const color = isRedLike ? [0, 255, 0, 255] : [255, 0, 0, 255];
+                            cv.circle(src, new cv.Point(j, i), 2, color, -1, cv.LINE_AA, 0);
+                        }
+                    }
+                }
+                
+                const imageData = new ImageData(new Uint8ClampedArray(src.data), src.cols, src.rows)
+                canvas.getContext("2d").putImageData(imageData, 0, 0);
+                console.log('Result displayed on canvas.');
+
+                src.delete();
+                gray.delete();
+                corners.delete();
+                dst.delete();
+            } catch (err) {
+                console.error('Error during Harris Corner Detection:', err);
             }
         }
 
@@ -393,7 +759,7 @@
 
         function loadBackground(event) {
             background_p = undefined
-
+            
             document.getElementById("background-container").style.visibility = "visible"
             backgroundImage = new Image()
             backgroundImage.addEventListener('load', function() {
