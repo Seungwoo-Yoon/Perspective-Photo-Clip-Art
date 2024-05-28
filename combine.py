@@ -1,17 +1,22 @@
 import numpy as np
 from calibration import *
 import cv2
+from tqdm import tqdm
 
 def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter) -> np.ndarray:
     # map the 2D coordinate in origin picture to the target picture
     # Coordinate Mapping
-    x = homogeneous(x)
-    mapped_x = P_target.K @ (
-        P_target.R @ np.linalg.inv(P_origin.R) @ (np.linalg.inv(P_origin.K) @ x - P_origin.t)
-        + P_target.t
-    )
+    x = multiple_homogeneous(x)
+
+    C_origin_norm = np.linalg.norm(- P_origin.R.T @ P_origin.t)
+    C_target_norm = np.linalg.norm(- P_target.R.T @ P_target.t)
+
+    # scale = C_target_norm / C_origin_norm
+    scale = 1
+
+    mapped_x = (P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
     
-    return euclidian(mapped_x)
+    return multiple_euclidian(mapped_x)
 
 def mask(image: np.ndarray):
     # get the valid region from the image
@@ -26,15 +31,15 @@ def overwrite(bg: np.ndarray, obj: np.ndarray,
     alpha_mask = mask(obj)
     W, H = bg.shape[1], bg.shape[0]
     objH, objW = obj.shape[0], obj.shape[1]
+    xs, ys = np.meshgrid(range(W), range(H))
+    mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
+    mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_background, P_object).reshape(H, W, 2)
 
-    for x in range(W):
-        print(x)
+    for x in tqdm(range(W)):
         for y in range(H):
-            mapped_coordinate = mapping(np.array([x, y]), P_background, P_object)
-            print(mapped_coordinate)
+            mapped_coordinate = mapped_coordinates[y, x]
             if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
-                print(1)
                 if alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-                    new_image[y, x] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0])][0:3]
+                    new_image[y, x] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
 
     return new_image

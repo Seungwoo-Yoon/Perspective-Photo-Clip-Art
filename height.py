@@ -26,4 +26,7 @@ def height_projection(origin: np.ndarray, vp: VanishingPoint, height_info: Heigh
     # calculate the height (propsal page 13)
     L = (np.linalg.norm(vp.z - origin) / (np.linalg.norm(euclidian(t1_tilde) - origin) + 1e-8) - 1) * height_info.length
 
+    if (euclidian(t1_tilde) - euclidian(b2)) @ (euclidian(t1_tilde) - (vp.z)) > 0:
+        L = -L
+
     return pz, L

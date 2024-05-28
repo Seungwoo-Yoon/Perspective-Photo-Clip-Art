@@ -40,6 +40,7 @@ class VanishingPoint:
             raise ValueError('unexpected axis')
         
         # rotate the vanishing point (proposal page 18)
-        x = np.cos(theta) * self.x + np.sin(theta) * self.y
-        y = -np.sin(theta) * self.x + np.cos(theta) * self.y
-        self.x, self.y = x, y
+        x = np.cos(theta) * homogeneous(self.x) - np.sin(theta) * homogeneous(self.y)
+        y = np.sin(theta) * homogeneous(self.x) + np.cos(theta) * homogeneous(self.y)
+        
+        self.x, self.y = euclidian(x), euclidian(y)

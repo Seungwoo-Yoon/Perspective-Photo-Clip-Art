@@ -1,4 +1,4 @@
-"packages" = ["numpy", "opencv-python", "pillow"]
+"packages" = ["numpy", "opencv-python", "pillow", "tqdm"]
 
 [[fetch]]
 "files" = ["/height.py", "/vanishing_point.py", "/calibration.py", "/combine.py", "coordinate.py"]
