@@ -10,6 +10,15 @@ class CameraParameter:
         self.R = R
         self.t = t
 
+def rotate(P: CameraParameter, theta):
+    K = P.K
+    R = P.R
+    t = P.t
+    # C = -R.T @ t
+    t = np.array([[np.cos(theta), -np.sin(theta), 0], [np.sin(theta), np.cos(theta), 0], [0, 0, 1]]) @ t
+    R = np.array([[np.cos(theta), -np.sin(theta), 0], [np.sin(theta), np.cos(theta), 0], [0, 0, 1]]) @ R
+    # t = -R @ C
+    return CameraParameter(K, R, t)
 
 def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: HeightInformation) \
     -> CameraParameter:
@@ -19,6 +28,9 @@ def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: Heig
     pz, L = height_projection(origin, vanishing, height_info)
     
     # compute K
+    print(Vx)
+    print(Vy)
+
     A = np.array([[Vx[0]*Vy[0]+Vx[1]*Vy[1], Vx[0]+Vy[0], Vx[1]+Vy[1], 1],
                   [Vy[0]*Vz[0]+Vy[1]*Vz[1], Vy[0]+Vz[0], Vy[1]+Vz[1] ,1],
                   [Vz[0]*Vx[0]+Vz[1]*Vx[1], Vz[0]+Vx[0], Vz[1]+Vx[1], 1]])
@@ -27,7 +39,14 @@ def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: Heig
     W = np.array([[w[0],0,w[1]],
                   [0,w[0],w[2]],
                   [w[1],w[2],w[3]]])
-    print(W)
+    
+    W = W / np.linalg.norm(W)
+
+    # D, V = np.linalg.eig(np.linalg.inv(W))
+    # # D = np.max((np.zeros_like(D), D), axis=0)
+    # D = np.diag(D)
+    # W = V @ D @ np.linalg.inv(V)
+
     K = np.linalg.inv(np.linalg.cholesky(W)).T
     K = K / K[2, 2]
     
@@ -37,7 +56,7 @@ def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: Heig
     K_vy = np.dot(Kinv, homogeneous(Vy)).T
     K_vz = np.dot(Kinv, homogeneous(Vz)).T
     QR = np.stack([K_vx, K_vy, K_vz], axis=1)
-    R, a = np.linalg.qr(QR)
+    R, _ = np.linalg.qr(QR)
 
     R_ret = None
     t = None

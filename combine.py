@@ -8,9 +8,6 @@ def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter)
     # Coordinate Mapping
     x = multiple_homogeneous(x)
 
-    C_origin_norm = np.linalg.norm(- P_origin.R.T @ P_origin.t)
-    C_target_norm = np.linalg.norm(- P_target.R.T @ P_target.t)
-
     # scale = C_target_norm / C_origin_norm
     scale = 1
 
@@ -35,11 +32,11 @@ def overwrite(bg: np.ndarray, obj: np.ndarray,
     mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
     mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_background, P_object).reshape(H, W, 2)
 
-    for x in tqdm(range(W)):
+    for x in range(W):
         for y in range(H):
             mapped_coordinate = mapped_coordinates[y, x]
             if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
                 if alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-                    new_image[y, x] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
+                    new_image[y, x, :3] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
 
     return new_image

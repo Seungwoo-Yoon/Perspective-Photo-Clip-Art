@@ -70,7 +70,7 @@ object_z = np.array([
 object_height = np.array([
     [208, 423], [199, 173]
 ]) / 500 * 433
-object_height_value = 15
+object_height_value = 10
 object_origin = np.array([207, 422]) / 500 * 433
 
 # cv2.imshow('img', background_img)
@@ -81,14 +81,13 @@ object_origin = np.array([207, 422]) / 500 * 433
 # exit()
 
 bg_vp = VanishingPoint(background_x, background_y, background_z)
-# bg_vp.rotate(-np.pi / 3)
+theta = np.pi / 2 - 1e-1
+# bg_vp.rotate(theta)
 obj_vp = VanishingPoint(object_x, object_y, object_z)
 
 bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)
 obj_h = HeightInformation(object_height[0], object_height[1], object_height_value)
 
-P_bg = calibration(background_origin, bg_vp, bg_h)
-P_obj = calibration(object_origin, obj_vp, obj_h)
 
 pz, L = height_projection(object_origin, obj_vp, obj_h)
 background_img = cv2.line(background_img, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.z[0]), int(bg_vp.z[1])], (256, 0, 0), 3)
@@ -101,6 +100,10 @@ object_img = cv2.line(object_img, [int(object_origin[0]), int(object_origin[1])]
 
 cv2.imshow('img', background_img)
 cv2.waitKey()
+
+# obj_vp.rotate(theta)
+P_bg = calibration(background_origin, bg_vp, bg_h)
+P_obj = calibration(object_origin, obj_vp, obj_h)
 
 visualizer = CameraPoseVisualizer([-25, 25], [-25, 25], [0, 50])
 visualizer.extrinsic2pyramid(np.linalg.inv(P_bg.K) @ P_bg.P, 'r', 10)

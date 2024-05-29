@@ -27,8 +27,8 @@
     <h1>Perspective Photo Clip Art</h1>
 
     <div id="file-container">
-        <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
-        <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+        <label>Background Image <input type="file" accept="image/png" onchange="loadBackground(event)" id="background-image"></label>
+        <label>Object Image <input type="file" accept="image/png" onchange="loadObject(event)" id="object-image"></label>
     </div>
 
     <div class="container">
@@ -88,6 +88,7 @@
         var backgroundImageBase64 = undefined
         var objectImageBase64 = undefined
         var newImage = undefined
+        var newImageBase64 = undefined
 
         var backgroundX = []
         var backgroundY = []
@@ -110,10 +111,26 @@
         var rotation = 0
 
         const python = new Event("python")
+        const complete = new Event("complete")
         const pythonEvent = document.getElementById("python-event")
+
+        pythonEvent.addEventListener("complete", function(event) {
+            drawResult(newImageBase64)
+        })
+
+        function drawResult(base64) {
+            var ctx = resultCanvas.getContext("2d")
+            newImage = new Image()
+            newImage.onload = function() {
+                ctx.drawImage(newImage, 0, 0, resultCanvas.width, resultCanvas.height)
+            }
+            newImage.src = newImageBase64
+        }
 
         function addObject(event) {
             backgroundOrigin = [event.offsetX, event.offsetY]
+            backgroundImage = newImage
+            backgroundImageBase64 = newImageBase64
             pythonEvent.dispatchEvent(python)
         }
 
@@ -332,18 +349,21 @@
 
             document.getElementById("background-container").style.visibility = "visible"
             backgroundImage = new Image()
+            newImage = new Image()
             backgroundImage.addEventListener('load', function() {
                 backgroundCanvas.width = 500
                 backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
                 backgroundCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
             })
             backgroundImage.src = URL.createObjectURL(event.target.files[0])
+            newImage.src = backgroundImage.src
             backgroundInit()
 
             var reader  = new FileReader()
             reader.readAsDataURL(event.target.files[0])
             reader.onloadend = function () {
                 backgroundImageBase64 = reader.result
+                newImageBase64 = backgroundImageBase64
             }
         }
         
@@ -366,21 +386,22 @@
         }
 
         async function getResult() {
-            // if (backgroundImage === undefined && objectImage === undefined) {
-            //     alert("You must input both background and object images")
-            //     return
-            // }
+            if (backgroundImage === undefined && objectImage === undefined) {
+                alert("You must input both background and object images")
+                return
+            }
 
-            // if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
-            //     objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
-            //     alert("You must input at least two lines for all axes")
-            //     return
-            // }
+            if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
+                objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
+                alert("You must input at least two lines for all axes")
+                return
+            }
 
-            // if (backgroundHeight === undefined || backgroundHeightValue === undefined) {
-            //     alert("You must input height information")
-            //     return
-            // }
+            if (backgroundHeight === undefined || backgroundHeightValue === undefined ||
+                objectHeight === undefined || objectHeightValue === undefined) {
+                alert("You must input height information")
+                return
+            }
 
             document.getElementById("background-container").style.display = "none"
             document.getElementById("object-container").style.display = "none"
@@ -391,8 +412,6 @@
             resultCanvas.width = 500
             resultCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
             resultCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
-
-            newImage = backgroundImage
         }
     </script>
     
