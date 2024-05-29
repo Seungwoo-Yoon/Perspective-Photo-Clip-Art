@@ -17,12 +17,19 @@
             visibility: hidden;
             margin: 10px;
         }
+
+        #result {
+            visibility: hidden;
+        }
     </style>
     <script type="module" src="https://pyscript.net/releases/2024.5.1/core.js"></script>
 <body>
     <h1>Perspective Photo Clip Art</h1>
-    <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
-    <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+
+    <div id="file-container">
+        <label>Background Image <input type="file" accept="image/png" onchange="loadBackground(event)" id="background-image"></label>
+        <label>Object Image <input type="file" accept="image/png" onchange="loadObject(event)" id="object-image"></label>
+    </div>
 
     <div class="container">
         <div id="background-container">
@@ -53,8 +60,15 @@
 
     <div id="python-event"></div>
 
-    
-    <input type="button" value="done" onclick="getResult()">
+    <input type="button" value="done" id="done" onclick="getResult()">
+
+    <div id="result">
+        <canvas id="result-canvas" onclick="addObject(event)"></canvas>
+        <label>
+        <input type="range" id="rotation" min="-180" max="180" value="0" step="1" onchange="rotationChange(event)">
+        Rotation: <output id="rotation-output">0</output>°
+        </label>
+    </div>
 
     <script>
         const inputMode = {
@@ -67,9 +81,14 @@
 
         var backgroundCanvas = document.getElementById("background-canvas")
         var objectCanvas = document.getElementById("object-canvas")
+        var resultCanvas = document.getElementById("result-canvas")
         
         var backgroundImage = undefined
         var objectImage = undefined
+        var backgroundImageBase64 = undefined
+        var objectImageBase64 = undefined
+        var newImage = undefined
+        var newImageBase64 = undefined
 
         var backgroundX = []
         var backgroundY = []
@@ -77,6 +96,7 @@
         var backgroundHeight = undefined
         var backgroundHeightValue = undefined
         var backgroundAxis = inputMode.x
+        var backgroundOrigin = undefined
         var backgroundP = null
         
         var objectX = []
@@ -88,8 +108,36 @@
         var objectOrigin = undefined
         var objectP = null
 
+        var rotation = 0
+
         const python = new Event("python")
+        const complete = new Event("complete")
         const pythonEvent = document.getElementById("python-event")
+
+        pythonEvent.addEventListener("complete", function(event) {
+            drawResult(newImageBase64)
+        })
+
+        function drawResult(base64) {
+            var ctx = resultCanvas.getContext("2d")
+            newImage = new Image()
+            newImage.onload = function() {
+                ctx.drawImage(newImage, 0, 0, resultCanvas.width, resultCanvas.height)
+            }
+            newImage.src = newImageBase64
+        }
+
+        function addObject(event) {
+            backgroundOrigin = [event.offsetX, event.offsetY]
+            backgroundImage = newImage
+            backgroundImageBase64 = newImageBase64
+            pythonEvent.dispatchEvent(python)
+        }
+
+        function rotationChange(event) {
+            rotation = event.target.value
+            document.getElementById("rotation-output").textContent = event.target.value
+        }
 
         function backgroundInit() {
             backgroundX = []
@@ -301,13 +349,22 @@
 
             document.getElementById("background-container").style.visibility = "visible"
             backgroundImage = new Image()
+            newImage = new Image()
             backgroundImage.addEventListener('load', function() {
                 backgroundCanvas.width = 500
                 backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
                 backgroundCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
             })
             backgroundImage.src = URL.createObjectURL(event.target.files[0])
+            newImage.src = backgroundImage.src
             backgroundInit()
+
+            var reader  = new FileReader()
+            reader.readAsDataURL(event.target.files[0])
+            reader.onloadend = function () {
+                backgroundImageBase64 = reader.result
+                newImageBase64 = backgroundImageBase64
+            }
         }
         
         function loadObject(event) {
@@ -320,26 +377,41 @@
             })
             objectImage.src = URL.createObjectURL(event.target.files[0])
             objectInit()
+
+            var reader  = new FileReader()
+            reader.readAsDataURL(event.target.files[0])
+            reader.onloadend = function () {
+                objectImageBase64 = reader.result
+            }
         }
 
         async function getResult() {
-            // if (backgroundImage === undefined && objectImage === undefined) {
-            //     alert("You must input both background and object images")
-            //     return
-            // }
+            if (backgroundImage === undefined && objectImage === undefined) {
+                alert("You must input both background and object images")
+                return
+            }
 
-            // if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
-            //     objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
-            //     alert("You must input at least two lines for all axes")
-            //     return
-            // }
+            if (backgroundX.length < 2 || backgroundY.length < 2 || backgroundZ.length < 2 ||
+                objectX.length < 2 || objectY.length < 2 || objectZ.length < 2) {
+                alert("You must input at least two lines for all axes")
+                return
+            }
 
-            // if (backgroundHeight === undefined || backgroundHeightValue === undefined) {
-            //     alert("You must input height information")
-            //     return
-            // }
+            if (backgroundHeight === undefined || backgroundHeightValue === undefined ||
+                objectHeight === undefined || objectHeightValue === undefined) {
+                alert("You must input height information")
+                return
+            }
 
-            pythonEvent.dispatchEvent(python)
+            document.getElementById("background-container").style.display = "none"
+            document.getElementById("object-container").style.display = "none"
+            document.getElementById("done").style.display = "none"
+            document.getElementById("file-container").style.display = "none"
+            document.getElementById("result").style.visibility = "visible"
+
+            resultCanvas.width = 500
+            resultCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
+            resultCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
         }
     </script>
     
