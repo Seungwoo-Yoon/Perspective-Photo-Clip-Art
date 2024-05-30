@@ -217,10 +217,20 @@ objH, objW = object_img.shape[0], object_img.shape[1]
 xs, ys = np.meshgrid(range(objW), range(objH))
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
 mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
+# mask_mapped = mapping(np.array((xs, ys)).transpose((1, 2, 0)).reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
+
+# color_mask = np.zeros((*masks[0].shape, 4), dtype=np.float32)
+# color_mask[masks[0]] = [0, 0, 255, 255]
+# new_image_float = new_image.astype(np.float32)
+# new_image_float = cv2.addWeighted(new_image_float, 1.0, color_mask, 0.4, 0)
+# new_image = new_image_float.astype(np.uint8)
+
+
+
 for x in tqdm(range(objW)):
     for y in range(objH):
         mapped_coordinate = mapped_coordinates[y, x]
-        new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]
+        new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1] * (1 - masks[0][y, x])
 # Calculate mapped masks
 
 # Get perspective transform matrix
