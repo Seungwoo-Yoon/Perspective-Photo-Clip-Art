@@ -4,66 +4,297 @@
     <meta charset="UTF-8">
     <title>Perspective Photo Clip Art</title>
     <style>
-        .container {
-            display: flex;
-            flex-basis: auto;
-            flex-grow: 1;
+        body, html {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        #background-container {
-            visibility: hidden;
-            margin: 10px;
-            margin-left: 0;
+        h1 {
+            width: 100%;
+            text-align: center;
+            padding:30px;
+            margin:0;
+            /* background-color:#ccc; */
+        }
+        canvas {
+            display: inline-block;
+        }
+        .next-element {
+            margin-top: 0;
         }
 
-        #object-container {
-            visibility: hidden;
-            margin: 10px;
+        div.title {
+            float: left;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            background-color: aliceblue;
+            width: 50%;
+            text-align: center;
+            line-height: 1.2;
         }
+        .title:hover {
+            background-color: rgb(205, 231, 255)
+        }
+
+        input[type="file"] {
+            display:none;
+        }
+        .file-upload {
+            background-color:white;
+            display: inline-block;
+            border-radius: 20px;
+            padding: 20px 10px;
+            width:100px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .file-upload:hover {
+            background-color: black;
+            color: white;
+        }
+
+        span.title {
+            font-size: large;
+            font-weight: bold;
+        }
+        .container {
+            clear:both;
+            display: flex;
+            flex-basis: auto;
+        }
+        #background-container {
+            /* visibility: hidden; */
+            display:inline-block;
+            /* float: left; */
+            align-items: center;
+            text-align: center;
+            margin: 0;
+            width: 100%;
+        }
+        #object-container {
+            /* visibility: hidden; */
+            display:none;
+            align-items: center;
+            text-align: center;
+            margin: 0;
+            width: 100%;
+        }
+
+        .alert-text {
+            background-color: black;
+            color: white;
+            display: inline-block;
+            border: 2px outset #000;
+            width: 100%;
+            padding: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .radio-container {
+            padding: 30px 0px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .radio-container input {
+            position: absolute;
+            visibility: hidden;
+        }
+        .axis{
+            display:inline-block;
+            padding: 10px 0px;          
+            text-align:center;
+            /* float: left; */
+            width: 20%;
+            padding: 15px 0px;;
+            border-radius: 25px;
+        }
+        #x {
+            background-color: rgb(255, 211, 211) ;
+            transition: background-color 0.1s, color 0.1s;
+        }
+        #x:hover, .radio-container input:checked ~ #x {
+            background-color: rgb(255, 50, 50);
+            color: white;
+        }
+        #y {
+            background-color: rgb(211, 255, 211); 
+            transition: background-color 0.1s, color 0.1s;
+        }
+        #y:hover, .radio-container input:checked ~ #y {
+            background-color: rgb(50, 255, 50);
+        }
+        #z {
+            background-color: rgb(211, 211, 255);
+            transition: background-color 0.1s, color 0.1s;
+        }
+        #z:hover, .radio-container input:checked ~ #z {
+            background-color: rgb(50, 50, 255);
+            color: white;
+        }
+        #height {
+            background-color: rgb(255, 217, 159);
+            transition: background-color 0.1s, color 0.1s;
+        }
+        #height:hover, .radio-container input:checked ~ #height {
+            background-color: rgb(255, 128, 50);
+        }
+        .tools {
+            display: inline-block;
+            padding: 10px 0px;
+            text-align:center;
+            border-style: solid;
+            border-color: white;
+            border-width: 2px;
+            /* float: left; */
+            width: calc(80% / 3 - 2px * 2);
+            padding: 15px 0px;
+            transition: background-color 0.1s, border-color 0.1s;
+        }
+        .tools:hover {
+            border-style: solid;
+            border-color: rgb(202, 202, 179);
+            border-width: 2px;
+            background-color: beige;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 15%;
+            height: 30px;
+        }
+
+        div.done {
+            margin-top:40px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+        input[type="button"] {
+            display:none;
+        }
+        .doneButton {
+            text-align:center;
+            background-color:rgb(100,100,100);
+            border-style:solid;
+            border-width: 5px;
+            border-color: rgb(206, 206, 206);
+            color:white;
+            border-radius:25px;
+            padding:30px;
+        }
+        .doneButton:hover {
+            background-color:gray;
+            cursor:pointer;
+        }
+
+        
     </style>
     <script type="module" src="https://pyscript.net/releases/2024.5.1/core.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" type="text/javascript"></script>
 <body>
     <h1>Perspective Photo Clip Art</h1>
-    <label>Background Image <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image"></label>
-    <label>Object Image <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image"></label>
+
+    <div class="title" id="background-title">
+    <span class="title">Background Image</span>
+    <br>
+    <label for="background-image-load" class="file-upload">Load</label>
+    <input type="file" accept="image/*" onchange="loadBackground(event)" id="background-image-load">
+    <label for="background-image-edit" class="file-upload">Edit</label>
+    <input type="button" id="background-image-edit" onclick="editBackground()">
+
+    </div>
+
+    <div class="title" id="object-title">
+    <span class="title">Object Image</span>
+    <br>
+    <label for="object-image" class="file-upload">Load</label>
+    <input type="file" accept="image/*" onchange="loadObject(event)" id="object-image">
+    <label for="object-image-edit" class="file-upload">Edit</label>
+    <input type="button" id="object-image-edit" onclick="editObject()">
+    </div>
 
     <div class="container">
         <div id="background-container">
-            <h3>Background Image</h1>
-            <span class="background-alert-text"></span>
-            <br>
+            <span class="alert-text">You can click on image to set axis</span>
+
             <canvas id="background-canvas"></canvas>
-            <br>
-            <input type="radio" name="background-axis" value="x-axis" checked> x-axis
-            <input type="radio" name="background-axis" value="y-axis"> y-axis
-            <input type="radio" name="background-axis" value="z-axis"> z-axis
-            <input type="radio" name="background-axis" value="height"> height
-            <input type="button" name="background-axis" value="undo" onclick="backgroundUndo()">
+
+            <div class="radio">
+                <label class="radio-container">
+                    <input type="radio" name="background-axis" value="x-axis" checked> <span class="axis" id="x">x-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="background-axis" value="y-axis"> <span class="axis" id="y">y-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="background-axis" value="z-axis"> <span class="axis" id="z">z-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="background-axis" value="height"> <span class="axis" id="height">height</span>
+                </label>
+            </div>
+
+            <div>
+            <label for="background-undo" class="tools">Undo</label>
+            <input type="button" name="background-axis" value="undo" class="undo" id="background-undo" onclick="backgroundUndo()">
+
             <!--input type="button" name="background-axis" value="recommended corners" onclick="backgroundCornerDetection()"-->
-            <input type="button" name="background-axis" value="recommended lines" id="background-recommend" onclick="backgroundLineDetection()">
-            <input type="button" name="background-axis" value="back to canvas" id="background-return" onclick="backToCanvas()">
-            <br>
-            <input type="number" id="background-height" onchange="backgroundHeightValueChange()" placeholder="height">
+
+            <label for="background-recommend" class="tools">Recommended Lines</label>
+            <input type="button" name="background-axis" value="recommended lines" class="recommend" id="background-recommend" onclick="backgroundLineDetection()">
+
+            <label for="background-return" class="tools">Back to Canvas</label>
+            <input type="button" name="background-axis" value="back to canvas" class="return" id="background-return" onclick="backToCanvas()">
+            </div>
+
+            <input type="number" id="background-height" onchange="backgroundHeightValueChange()" placeholder="Background height">
+            
         </div>
 
         <div id="object-container">
-            <h3>Object Image</h1>
+            <span class="alert-text">First, select the origin point</span>
             <canvas id="object-canvas"></canvas>
-            <br>
-            <p>First, select the origin point</p>
-            <input type="radio" name="object-axis" value="x-axis" checked> x-axis
-            <input type="radio" name="object-axis" value="y-axis"> y-axis
-            <input type="radio" name="object-axis" value="z-axis"> z-axis
-            <input type="radio" name="object-axis" value="height"> height
-            <input type="button" name="object-axis" value="undo" onclick="objectUndo()">
-            <br>
-            <input type="number" id="object-height" onchange="objectHeightValueChange()" placeholder="height">
+            
+            <div class="radio">
+                <label class="radio-container">
+                    <input type="radio" name="object-axis" value="x-axis" checked> <span class="axis" id="x">x-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="object-axis" value="y-axis"> <span class="axis" id="y">y-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="object-axis" value="z-axis"> <span class="axis" id="z">z-axis</span>
+                </label>
+                <label class="radio-container">
+                    <input type="radio" name="object-axis" value="height"> <span class="axis" id="height">height</span>
+                </label>
+            </div>
+
+            <div>
+            <label for="object-undo" class="tools">Undo</label>
+            <input type="button" name="object-axis" value="undo" class="undo" id="object-undo" onclick="objectUndo()">
+
+            <!--input type="button" name="object-axis" value="recommended corners" onclick="objectCornerDetection()"-->
+
+            <label for="object-recommend" class="tools">Recommended Lines</label>
+            <input type="button" name="object-axis" value="recommended lines" class="recommend" id="object-recommend" onclick="objectLineDetection()">
+
+            <label for="object-return" class="tools">Back to Canvas</label>
+            <input type="button" name="object-axis" value="back to canvas" class="return" id="object-return" onclick="backToCanvas()">
+
+            </div>
+
+            <input type="number" id="object-height" onchange="objectHeightValueChange()" placeholder="Object height">
         </div>
     </div>
 
     <div id="python-event"></div>
 
-    <input type="button" value="done" onclick="getResult()">
+    <div class="done">
+    <label for="done" class="doneButton">Done!</label>
+    <input type="button" value="done" onclick="getResult()" id="done">
+    </div>
 
     <script>
         const inputMode = {
@@ -77,6 +308,7 @@
 
         var backgroundCanvas = document.getElementById("background-canvas")
         var objectCanvas = document.getElementById("object-canvas")
+        var resultCanvas = document.getElementById("result-canvas")
 
         backgroundCanvas.addEventListener("mousedown", function(event){backgroundDown(event)}, false)
         backgroundCanvas.addEventListener("mousemove", function(event){backgroundMove(event)}, false)
@@ -96,7 +328,12 @@
         var backgroundAdded = []
         var objectAdded = []
 
-        var backgroundAlert = document.getElementsByClassName("background-alert-text")[0]
+        var backgroundImageBase64 = undefined
+        var objectImageBase64 = undefined
+        var newImage = undefined
+        var newImageBase64 = undefined
+
+        var backgroundAlert = document.getElementsByClassName("alert-text")[0]
         var background_areLinesRecommended = false
         var background_recommendedLines = undefined
 
@@ -132,8 +369,15 @@
             background_areLinesRecommended = false
             background_recommendedLines = undefined
 
-            document.getElementById("background-recommend").style.visibility = "visible"
-            document.getElementById("background-return").style.visibility = "hidden"
+            // document.getElementById("background-recommend").style.display = "inline"
+            // document.getElementById("background-return").style.display = "none"
+
+            backgroundImage_save = undefined
+            backgroundImage_prev = []
+            backgroundAdded = []
+
+            backgroundAlert.style.color = "white"
+            backgroundAlert.innerText = "You can click on image to set axis"
         }
 
         function objectInit() {
@@ -155,6 +399,19 @@
             objectHeightValue = Number(document.getElementById("object-height").value)
         }
 
+        function editBackground() {
+            document.getElementById("background-container").style.display = "inline-block"
+            document.getElementById("object-container").style.display = "none"
+            document.getElementById("background-title").style.color = "blue"
+            document.getElementById("object-title").style.color = "black"
+        }
+
+        function editObject() {
+            document.getElementById("background-container").style.display = "none"
+            document.getElementById("object-container").style.display = "inline-block"
+            document.getElementById("background-title").style.color = "black"
+            document.getElementById("object-title").style.color = "blue"
+        }
 
         // from https://gist.github.com/jwir3/d797037d2e1bf78a9b04838d73436197
         function drawArrowhead(canvas, ends, radius, color) {
@@ -347,8 +604,11 @@
                     
                     console.log(backgroundAdded)
 
-                    document.getElementById("background-recommend").style.visibility = "visible"
-                    document.getElementById("background-return").style.visibility = "hidden"
+                    // document.getElementById("background-recommend").style.display = "inline"
+                    // document.getElementById("background-return").style.display = "none"
+                    
+                    setBackgroundAlertColor(backgroundMode)
+                    backgroundAlert.innerText = 'Line Drawn'
                 }
             }
             else {
@@ -366,8 +626,8 @@
                         backgroundImage_prev.push(save_img)
                     }
                     else {
-                        backgroundAlert.innerText = "Height can be selected only once!"
                         backgroundAlert.style.color = "red"
+                        backgroundAlert.innerText = "Height can be selected only once!"
                     }
                 } 
                 else {    
@@ -515,39 +775,54 @@
         }
 
         function backgroundLineDetection() {
-            background_areLinesRecommended = true
-            document.getElementById("background-recommend").style.visibility = "hidden"
-            document.getElementById("background-return").style.visibility = "visible"
-            
-            canvas = document.getElementById('background-canvas')
-            ctx = canvas.getContext("2d")
-            if (background_recommendedLines === undefined) {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const grayImageData = grayscale(imageData);
-                const edgesImageData = applyCannyEdgeDetection(grayImageData);
-                // ctx.putImageData(edgesImageData, 0, 0)
-                const lines = applyHoughTransform(edgesImageData);
+            if (!background_areLinesRecommended) {
+                background_areLinesRecommended = true
+                // document.getElementById("background-recommend").style.display = "none"
+                // document.getElementById("background-return").style.display = "inline"
+                
+                canvas = document.getElementById('background-canvas')
+                ctx = canvas.getContext("2d")
+                if (background_recommendedLines === undefined) {
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const grayImageData = grayscale(imageData);
+                    const edgesImageData = applyCannyEdgeDetection(grayImageData);
+                    // ctx.putImageData(edgesImageData, 0, 0)
+                    const lines = applyHoughTransform(edgesImageData);
 
-                background_recommendedLines = lines
+                    background_recommendedLines = lines
+                }
+                save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
+                backgroundImage_save = save_img
+                // backgroundImage_prev.push(save_img)
+
+                drawLines(ctx, background_recommendedLines, 'yellow');
+
+                backgroundAlert.style.color = "white"
+                backgroundAlert.innerText = 'These are some recommended lines'
             }
-            save_img = backgroundCanvas.getContext("2d").getImageData(0, 0, backgroundImage.width, backgroundImage.height)
-            backgroundImage_save = save_img
-            // backgroundImage_prev.push(save_img)
-
-            drawLines(ctx, background_recommendedLines, 'yellow');
-
-            backgroundAlert.style.color = "black"
-            backgroundAlert.innerText = 'These are some recommended lines'
+            else {
+                backgroundAlert.style.color = "white"
+                backgroundAlert.innerText = 'Lines are already recommended.'
+            }
         }
 
         function backToCanvas() {
-            ctx = backgroundCanvas.getContext("2d")
-            ctx.putImageData(backgroundImage_save, 0, 0)
+            if (background_areLinesRecommended) {
+                ctx = backgroundCanvas.getContext("2d")
+                ctx.putImageData(backgroundImage_save, 0, 0)
 
-            document.getElementById("background-recommend").style.visibility = "visible"
-            document.getElementById("background-return").style.visibility = "hidden"
+                // document.getElementById("background-recommend").style.display = "inline"
+                // document.getElementById("background-return").style.display = "none"
 
-            background_areLinesRecommended = false
+                background_areLinesRecommended = false
+
+                backgroundAlert.style.color = "white"
+                backgroundAlert.innerText = 'Back to Canvas'
+            }
+            else {
+                backgroundAlert.style.color = "white"
+                backgroundAlert.innerText = 'Use this button after using Recommended Lines button'
+            }
         }
         
         function pointToLineDistance(px, py, x1, y1, x2, y2) {
@@ -760,26 +1035,44 @@
         function loadBackground(event) {
             background_p = undefined
             
-            document.getElementById("background-container").style.visibility = "visible"
+            editBackground()
             backgroundImage = new Image()
             backgroundImage.addEventListener('load', function() {
                 // backgroundCanvas.width = 500
                 // backgroundCanvas.height = Number(500 * backgroundImage.height / backgroundImage.width)
 
-                backgroundCanvas.width = backgroundImage.width
-                backgroundCanvas.height = backgroundImage.height
+                if (backgroundImage.width > window.innerWidth) {
+                    backgroundCanvas.width = window.innerWidth
+                    backgroundCanvas.height = Number(backgroundCanvas.width * backgroundImage.height / backgroundImage.width)
+                }
+                else {
+                    backgroundCanvas.width = backgroundImage.width
+                    backgroundCanvas.height = backgroundImage.height
+                }
                 backgroundCanvas.getContext("2d").drawImage(backgroundImage, 0, 0, backgroundCanvas.width, backgroundCanvas.height)
+
+
             })
             backgroundImage.src = URL.createObjectURL(event.target.files[0])
             backgroundInit()
         }
         
         function loadObject(event) {
-            document.getElementById("object-container").style.visibility = "visible"
+            editObject()
             objectImage = new Image()
             objectImage.addEventListener('load', function() {
-                objectCanvas.width = 500
-                objectCanvas.height = Number(500 * objectImage.height / objectImage.width)
+                // objectCanvas.width = 500
+                // objectCanvas.height = Number(500 * objectImage.height / objectImage.width)
+
+                if (objectImage.width > window.innerWidth) {
+                    objectCanvas.width = window.innerWidth
+                    objectCanvas.height = Number(objectCanvas.width * objectImage.height / objectImage.width)
+                }
+                else {
+                    objectCanvas.width = objectImage.width
+                    objectCanvas.height = objectImage.height
+                }
+
                 objectCanvas.getContext("2d").drawImage(objectImage, 0, 0, objectCanvas.width, objectCanvas.height)
             })
             objectImage.src = URL.createObjectURL(event.target.files[0])

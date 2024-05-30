@@ -3,14 +3,13 @@ from vanishing_point import *
 from coordinate import *
 
 class HeightInformation:
-    def __init__(self, ground_point: np.ndarray, offset_point: np.ndarray, length: float) -> None:
+    def __init__(self, ground_point: np.ndarray, offset_point: np.ndarray, length: float):
         self.ground_point = ground_point
         self.offset_point = offset_point
         self.length = length
 
 
-def height_projection(origin: np.ndarray, vp: VanishingPoint, height_info: HeightInformation) \
-    -> tuple (np.ndarray, float):
+def height_projection(origin: np.ndarray, vp: VanishingPoint, height_info: HeightInformation):
     # get the height of a point in z-axis
     # return point(2D) and height
 
@@ -26,5 +25,8 @@ def height_projection(origin: np.ndarray, vp: VanishingPoint, height_info: Heigh
 
     # calculate the height (propsal page 13)
     L = (np.linalg.norm(vp.z - origin) / (np.linalg.norm(euclidian(t1_tilde) - origin) + 1e-8) - 1) * height_info.length
+
+    if (euclidian(t1_tilde) - euclidian(b2)) @ (euclidian(t1_tilde) - (vp.z)) > 0:
+        L = -L
 
     return pz, L
