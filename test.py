@@ -22,15 +22,15 @@ def myPerspective(ori_p,bg_p):
     _,_,Vt = np.linalg.svd(A)
     return Vt[-1].reshape(3,3)
 
-def getSupportPoints(vanishing_lines,start,end,lastPoints=None):
+def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0):
     #= Hyperparameter =#
     line_length = 90
-    sec_line_offset = 30
+    sec_line_offset = 60
     #= Hyperparameter =#
     ori_p_1 = vanishing_lines[0,0]
     if lastPoints is None:
         temp_ori_p = vanishing_lines[start,1]
-        ori_p_2 = ori_p_1 + line_length * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
+        ori_p_2 = ori_p_1 + line_length * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1) * scale#FIXME
     else:
         ori_p_2 = lastPoints[3]
         line_length = np.linalg.norm(ori_p_2 - ori_p_1, ord=2)
@@ -200,18 +200,8 @@ if False: #test mapped_vanishing_lines
 
 # Get points for perspective transform
 # for x to y (ex)
-ori_p = getSupportPoints(mapped_vanishing_lines,0,2)
-bg_p = getSupportPoints(bg_vanishing_lines,0,2)
-if False: #test support points for perspective transform
-    cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
-    cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (255, 255, 0), -1)
-    cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 10, (0, 255, 255), -1)
-    cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 10, (0, 255, 255), -1)
-    
-    cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (255, 0, 255), -1)
-    cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (255, 0, 255), -1)
-    cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 10, (0, 255, 0), -1)
-    cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 255, 0), -1)
+ori_p = getSupportPoints(mapped_vanishing_lines,0,5)
+bg_p = getSupportPoints(bg_vanishing_lines,0,5)
 
 # Calculate perspective matrix
 perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1))
@@ -225,18 +215,29 @@ mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, per
 for x in tqdm(range(objW)):
     for y in range(objH):
         mapped_coordinate = mapped_coordinates[y, x]
-        if masks[0][y, x] == 1: 
-            new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
+        if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
+            if masks[0][y, x] == 1 and alpha_mask[y,x] == 1:
+                new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
 
 mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
 mapped_vanishing_lines[:,1] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,1],axis=-1)).T).T)
 mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 
+if False: #test support points for perspective transform
+    # cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
+    # cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (255, 255, 0), -1)
+    # cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 30, (255, 255, 255), -1)
+    # cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 30, (255, 255, 255), -1)
+    
+    # cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (255, 0, 255), -1)
+    # cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (255, 0, 255), -1)
+    cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 20, (255, 255, 255), -1)
+    cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 20, (255, 255, 255), -1)
 
-ori_p = getSupportPoints(mapped_vanishing_lines,2,1)
-bg_p = getSupportPoints(bg_vanishing_lines,2,1)
+ori_p = getSupportPoints(mapped_vanishing_lines,5,1)
+bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93) #FIXME
 
-if True: #test support points for perspective transform
+if False: #test support points for perspective transform
     cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 20, (255, 0, 0), -1)
     cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 20, (255, 0, 0), -1)
     cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 10, (0, 255, 255), -1)
@@ -256,7 +257,7 @@ for x in tqdm(range(objW)):
     for y in range(objH):
         mapped_coordinate = mapped_coordinates[y, x]
         if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
-            if masks[1][y, x] == 1:
+            if masks[1][y, x] == 1 and alpha_mask[y,x] == 1:
                 new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
         
 
