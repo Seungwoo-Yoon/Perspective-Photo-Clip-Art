@@ -3,7 +3,7 @@ from calibration import *
 import cv2
 from tqdm import tqdm
 
-def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter) -> np.ndarray:
+def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter, option=None) -> np.ndarray:
     # map the 2D coordinate in origin picture to the target picture
     # Coordinate Mapping
     x = multiple_homogeneous(x)
@@ -13,8 +13,10 @@ def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter)
 
     # scale = C_target_norm / C_origin_norm
     scale = 1
-
-    mapped_x = (P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
+    if option is None:
+        mapped_x = (P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
+    else:
+        mapped_x = (option @ P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
     
     return multiple_euclidian(mapped_x)
 

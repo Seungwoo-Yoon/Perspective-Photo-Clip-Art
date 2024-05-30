@@ -22,15 +22,15 @@ def myPerspective(ori_p,bg_p):
     _,_,Vt = np.linalg.svd(A)
     return Vt[-1].reshape(3,3)
 
-def getSupportPoints(vanishing_lines):
+def getSupportPoints(vanishing_lines,start,end):
     #= Hyperparameter =#
     line_length = 90
     sec_line_offset = 30
     #= Hyperparameter =#
     ori_p_1 = vanishing_lines[0,0]
-    temp_ori_p = vanishing_lines[0,1] #FIXME
+    temp_ori_p = vanishing_lines[start,1] #FIXME
     ori_p_2 = ori_p_1 + line_length * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
-    temp_ori_p = vanishing_lines[1,1] #FIXME
+    temp_ori_p = vanishing_lines[end,1] #FIXME
     ori_p_3 = ori_p_1 + sec_line_offset * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
     ori_p_4 = ori_p_1 + (sec_line_offset + line_length) * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
     return np.array([ori_p_1,ori_p_2,ori_p_3,ori_p_4])
@@ -195,8 +195,8 @@ if False: #test mapped_vanishing_lines
 
 # Get points for perspective transform
 # for x to y (ex)
-ori_p = getSupportPoints(mapped_vanishing_lines)
-bg_p = getSupportPoints(bg_vanishing_lines)
+ori_p = getSupportPoints(mapped_vanishing_lines,0,2)
+bg_p = getSupportPoints(bg_vanishing_lines,0,2)
 if False: #test support points for perspective transform
     cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
     cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (255, 255, 0), -1)
@@ -209,14 +209,14 @@ if False: #test support points for perspective transform
     cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 255, 0), -1)
 
 # Calculate perspective matrix
-perspective_matrix = myPerspective(ori_p,bg_p)
+perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1))
 new_image = background_img.copy()
 alpha_mask = mask(object_img)
 W, H = background_img.shape[1], background_img.shape[0]
 objH, objW = object_img.shape[0], object_img.shape[1]
 xs, ys = np.meshgrid(range(objW), range(objH))
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
-mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg).reshape(objH, objW, 2)
+mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
 for x in tqdm(range(objW)):
     for y in range(objH):
         mapped_coordinate = mapped_coordinates[y, x]
