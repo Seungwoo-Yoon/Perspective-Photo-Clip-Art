@@ -45,6 +45,7 @@ class VanishingPoint:
         
         self.x, self.y = euclidian(x), euclidian(y)
 
+
 if __name__ == "__main__":
     xlist = np.array([[[751, 157], [915, 244]],
                       [[750, 423], [877, 448]],
