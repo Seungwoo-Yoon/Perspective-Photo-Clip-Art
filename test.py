@@ -5,7 +5,7 @@ from height import *
 from combine import *
 from coordinate import *
 
-from util.camera_pose_visualizer import CameraPoseVisualizer
+# from util.camera_pose_visualizer import CameraPoseVisualizer
 
 object_img = np.array(cv2.imread('object.png', cv2.IMREAD_UNCHANGED))
 background_img = np.array(cv2.imread('background.jpg'))
@@ -81,12 +81,13 @@ object_origin = np.array([207, 422]) / 500 * 433
 # exit()
 
 bg_vp = VanishingPoint(background_x, background_y, background_z)
-theta = np.pi / 2 - 1e-1
+theta = np.pi / 12
 # bg_vp.rotate(theta)
 obj_vp = VanishingPoint(object_x, object_y, object_z)
 
 bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)
 obj_h = HeightInformation(object_height[0], object_height[1], object_height_value)
+
 
 
 pz, L = height_projection(object_origin, obj_vp, obj_h)
@@ -102,12 +103,13 @@ cv2.imshow('img', background_img)
 cv2.waitKey()
 
 # obj_vp.rotate(theta)
+bg_vp.rotate(theta)
 P_bg = calibration(background_origin, bg_vp, bg_h)
 P_obj = calibration(object_origin, obj_vp, obj_h)
 
-visualizer = CameraPoseVisualizer([-25, 25], [-25, 25], [0, 50])
-visualizer.extrinsic2pyramid(np.linalg.inv(P_bg.K) @ P_bg.P, 'r', 10)
-visualizer.extrinsic2pyramid(np.linalg.inv(P_obj.K) @ P_obj.P, 'b', 10)
+# visualizer = CameraPoseVisualizer([-25, 25], [-25, 25], [0, 50])
+# visualizer.extrinsic2pyramid(np.linalg.inv(P_bg.K) @ P_bg.P, 'r', 10)
+# visualizer.extrinsic2pyramid(np.linalg.inv(P_obj.K) @ P_obj.P, 'b', 10)
 # visualizer.show()
 
 new_img = overwrite(background_img, object_img, P_bg, P_obj)

@@ -49,9 +49,10 @@ def event_handler(event):
     object_height_value = js.objectHeightValue
     object_origin = np.array(js.objectOrigin) / js.objectCanvas.width * W
 
-    rotation = js.rotation * np.pi / 180
+    rotation = float(js.rotation) * np.pi / 180
 
     bg_vp = VanishingPoint(background_x, background_y, background_z)
+    bg_vp.rotate(rotation)
     obj_vp = VanishingPoint(object_x, object_y, object_z)
     
     bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)

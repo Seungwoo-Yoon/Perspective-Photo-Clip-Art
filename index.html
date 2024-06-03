@@ -420,6 +420,7 @@
         function rotationChange(event) {
             rotation = event.target.value
             document.getElementById("rotation-output").textContent = event.target.value
+            pythonEvent.dispatchEvent(python)
         }
 
         // -------------------------------------------------- Functions for background ---------------------------------------------------
