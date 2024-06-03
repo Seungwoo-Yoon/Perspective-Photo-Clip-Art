@@ -7,6 +7,22 @@ from coordinate import *
 
 from util.camera_pose_visualizer import CameraPoseVisualizer
 from scipy.ndimage import rotate
+from scipy.ndimage import map_coordinates
+def interpolate_pixel(image, y, x):
+    x0, x1 = int(x), min(int(x) + 1, image.shape[1] - 1)
+    y0, y1 = int(y), min(int(y) + 1, image.shape[0] - 1)
+
+    Ia = image[y0, x0]
+    Ib = image[y0, x1]
+    Ic = image[y1, x0]
+    Id = image[y1, x1]
+
+    wa = (x1 - x) * (y1 - y)
+    wb = (x - x0) * (y1 - y)
+    wc = (x1 - x) * (y - y0)
+    wd = (x - x0) * (y - y0)
+
+    return wa*Ia + wb*Ib + wc*Ic + wd*Id
 
 def mycross(a,b):
     return a[1]*b[0] - a[0]*b[1]
@@ -22,21 +38,21 @@ def myPerspective(ori_p,bg_p):
     _,_,Vt = np.linalg.svd(A)
     return Vt[-1].reshape(3,3)
 
-def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0):
+def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0, scale2=1.0):
     #= Hyperparameter =#
-    line_length = 90
-    sec_line_offset = 60
+    line_length = 90 # 90 #FIXME important for natualness
+    sec_line_offset = 1e-6
     #= Hyperparameter =#
     ori_p_1 = vanishing_lines[0,0]
     if lastPoints is None:
         temp_ori_p = vanishing_lines[start,1]
         ori_p_2 = ori_p_1 + line_length * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1) * scale#FIXME
     else:
-        ori_p_2 = lastPoints[3]
+        ori_p_2 = lastPoints[0]
         line_length = np.linalg.norm(ori_p_2 - ori_p_1, ord=2)
     temp_ori_p = vanishing_lines[end,1]
     ori_p_3 = ori_p_1 + sec_line_offset * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
-    ori_p_4 = ori_p_1 + (sec_line_offset + line_length) * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
+    ori_p_4 = ori_p_1 + (sec_line_offset + line_length*scale2) * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
     return np.array([ori_p_1,ori_p_2,ori_p_3,ori_p_4])
 
 object_img = np.array(cv2.imread('object.png', cv2.IMREAD_UNCHANGED))
@@ -185,9 +201,9 @@ for i in range(6):
 new_image = background_img.copy()
 
 mapped_vanishing_lines = np.zeros((6,2,2),dtype=int)
-mapped_to_bg = P_bg.P @ np.linalg.pinv(P_obj.P)
-mapped_vanishing_lines[:,0] = multiple_euclidian((mapped_to_bg @ multiple_homogeneous(np.flip(vanishing_lines[:,0],axis=1)).T).T)
-mapped_vanishing_lines[:,1] = multiple_euclidian((mapped_to_bg @ multiple_homogeneous(np.flip(vanishing_lines[:,1],axis=1)).T).T)
+mapped_to_bg = P_obj.P @ np.linalg.pinv(P_bg.P)
+mapped_vanishing_lines[:,0] = multiple_euclidian((np.linalg.pinv(mapped_to_bg) @ multiple_homogeneous(np.flip(vanishing_lines[:,0],axis=-1)).T).T)
+mapped_vanishing_lines[:,1] = multiple_euclidian((np.linalg.pinv(mapped_to_bg) @ multiple_homogeneous(np.flip(vanishing_lines[:,1],axis=-1)).T).T)
 mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 if False: #test mapped_vanishing_lines
     cv2.circle(new_image, (int(mapped_vanishing_lines[0,0][1]), int(mapped_vanishing_lines[0,0][0])), 10, (0, 0, 255), -1)
@@ -202,65 +218,94 @@ if False: #test mapped_vanishing_lines
 # for x to y (ex)
 ori_p = getSupportPoints(mapped_vanishing_lines,0,5)
 bg_p = getSupportPoints(bg_vanishing_lines,0,5)
+print(np.linalg.norm(ori_p[0]-ori_p[1],axis=-1))
+print(np.linalg.norm(ori_p[2]-ori_p[3],axis=-1))
+print("--")
+print(np.linalg.norm(bg_p[0]-bg_p[1],axis=-1))
+print(np.linalg.norm(bg_p[2]-bg_p[3],axis=-1))
 
 # Calculate perspective matrix
 perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1))
 alpha_mask = mask(object_img)
 W, H = background_img.shape[1], background_img.shape[0]
 objH, objW = object_img.shape[0], object_img.shape[1]
-xs, ys = np.meshgrid(range(objW), range(objH))
+
+xs, ys = np.meshgrid(range(W), range(H))
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
-mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
-
-for x in tqdm(range(objW)):
-    for y in range(objH):
+mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
+for x in tqdm(range(W)):
+    for y in range(H):
         mapped_coordinate = mapped_coordinates[y, x]
-        if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
-            if masks[0][y, x] == 1 and alpha_mask[y,x] == 1:
-                new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
+        if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
+            if True: # alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
+                new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
 
-mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
-mapped_vanishing_lines[:,1] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,1],axis=-1)).T).T)
-mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 
-if False: #test support points for perspective transform
-    # cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
-    # cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (255, 255, 0), -1)
-    # cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 30, (255, 255, 255), -1)
-    # cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 30, (255, 255, 255), -1)
+# xs, ys = np.meshgrid(range(objW), range(objH))
+# mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
+# mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
+# # mapped_coordinates = mapped_coordinates.transpose((2, 0, 1))
+# count_image = np.zeros_like(new_image)
+# for x in tqdm(range(objW)):
+#     for y in range(objH):
+#         mapped_coordinate = mapped_coordinates[y, x]
+#         if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
+#             if True:#masks[0][y, x] == 1 and alpha_mask[y,x] == 1:
+#                 # new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
+#                 new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] += interpolate_pixel(object_img, y, x)[:3]
+#                 # new_image = map_coordinates(object_img, mapped_coordinates, order=1, mode='nearest', cval=0.0)[0]
+
+#==============================================================================
+# mapped_ori_p_first = np.flip(multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(ori_p[3:4],axis=-1)).T).T),axis=-1)
+# mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
+# mapped_vanishing_lines[:,1] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,1],axis=-1)).T).T)
+# mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
+
+# if True: #test support points for perspective transform
+#     # cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
+#     # cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (255, 255, 0), -1) #cyan
+#     cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 30, (255, 0, 255), -1) #magenta
+#     cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 30, (255, 0, 255), -1)
     
-    # cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (255, 0, 255), -1)
-    # cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (255, 0, 255), -1)
-    cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 20, (255, 255, 255), -1)
-    cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 20, (255, 255, 255), -1)
+#     # cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (255, 0, 255), -1)
+#     # cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (255, 0, 255), -1)
+#     cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 30, (255, 255, 255), -1)
+#     cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 30, (255, 255, 255), -1)
 
-ori_p = getSupportPoints(mapped_vanishing_lines,5,1)
-bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93) #FIXME
-
-if False: #test support points for perspective transform
-    cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 20, (255, 0, 0), -1)
-    cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 20, (255, 0, 0), -1)
-    cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 10, (0, 255, 255), -1)
-    cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 10, (0, 255, 255), -1)
+# ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale=0.93)
+# # bg_p = getSupportPoints(bg_vanishing_lines,5,1)#,mapped_ori_p_first,scale=0.93) #FIXME
+# bg_p = getSupportPoints(bg_vanishing_lines,5,1)
+# # bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93,scale2=1.5)
+# print(np.linalg.norm(ori_p[0]-ori_p[1],axis=-1))
+# print(np.linalg.norm(ori_p[2]-ori_p[3],axis=-1))
+# print("--")
+# print(np.linalg.norm(bg_p[0]-bg_p[1],axis=-1))
+# print(np.linalg.norm(bg_p[2]-bg_p[3],axis=-1))
+# # bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93)
     
-    cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (0, 0, 255), -1)
-    cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (0, 0, 255), -1)
-    cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 10, (0, 255, 0), -1)
-    cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 255, 0), -1)
-
-perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) @ perspective_matrix
-
-mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
-mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
+# perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) @ perspective_matrix
+# mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
+# mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_obj, P_bg, perspective_matrix).reshape(objH, objW, 2)
     
-for x in tqdm(range(objW)):
-    for y in range(objH):
-        mapped_coordinate = mapped_coordinates[y, x]
-        if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
-            if masks[1][y, x] == 1 and alpha_mask[y,x] == 1:
-                new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
+# for x in tqdm(range(objW)):
+#     for y in range(objH):
+#         mapped_coordinate = mapped_coordinates[y, x]
+#         if 0 <= int(mapped_coordinate[1]) < H and 0 <= int(mapped_coordinate[0]) < W:
+#             if True: # masks[1][y, x] == 1 and alpha_mask[y,x] == 1:
+#                 new_image[int(mapped_coordinate[1]), int(mapped_coordinate[0])] = object_img[y, x, :-1]# * (1 - masks[0][y, x])
+#                 #interpolate with neighbor pixels of the background image
         
-
+# if True: #test support points for perspective transform
+#     cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 20, (255, 0, 0), -1)
+#     cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 20, (255, 0, 0), -1)
+#     cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 20, (0, 255, 255), -1)
+#     cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 20, (0, 255, 255), -1)
+    
+#     cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (0, 0, 255), -1)
+#     cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (0, 0, 255), -1)
+#     cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 10, (0, 255, 0), -1)
+#     cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 255, 0), -1)
+#==============================================================================
 
 # Calculate mapped masks
 
