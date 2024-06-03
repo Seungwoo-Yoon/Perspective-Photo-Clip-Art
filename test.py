@@ -233,12 +233,18 @@ objH, objW = object_img.shape[0], object_img.shape[1]
 xs, ys = np.meshgrid(range(W), range(H))
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
 mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
-for x in tqdm(range(W)):
-    for y in range(H):
-        mapped_coordinate = mapped_coordinates[y, x]
-        if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
-            if masks[0][int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1 and alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-                new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
+
+y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
+x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
+valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
+combined_mask = valid_mask * (masks[0][y, x] == 1) * (alpha_mask[y, x] == 1)
+new_image[combined_mask] = object_img[y[combined_mask], x[combined_mask], :-1]
+
+# for x in tqdm(range(W)):
+#     for y in range(H):
+#         if 0 <= int(mapped_coordinates[y, x, 1]) < objH and 0 <= int(mapped_coordinates[y, x, 0]) < objW:
+#             if masks[0][int(mapped_coordinates[y, x, 1]), int(mapped_coordinates[y, x, 0])] == 1 and alpha_mask[int(mapped_coordinates[y, x, 1]), int(mapped_coordinates[y, x, 0])] == 1:
+#                 new_image[y, x] = object_img[int(mapped_coordinates[y, x, 1]), int(mapped_coordinates[y, x, 0]), :-1]
 
 
 # xs, ys = np.meshgrid(range(objW), range(objH))
@@ -272,7 +278,7 @@ if True: #test support points for perspective transform
     cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 30, (255, 255, 255), -1)
     cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 30, (255, 255, 255), -1)
 
-ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale=0.93)
+ori_p = getSupportPoints(mapped_vanishing_lines,5,1)#,scale=1.07)
 # bg_p = getSupportPoints(bg_vanishing_lines,5,1)#,mapped_ori_p_first,scale=0.93) #FIXME
 bg_p = getSupportPoints(bg_vanishing_lines,5,1)
 # bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93,scale2=1.5)
@@ -285,12 +291,20 @@ print(np.linalg.norm(bg_p[2]-bg_p[3],axis=-1))
 perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) @ perspective_matrix
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
 mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
-for x in tqdm(range(W)):
-    for y in range(H):
-        mapped_coordinate = mapped_coordinates[y, x]
-        if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
-            if True:#masks[1][int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1 and alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-                new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
+
+y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
+x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
+valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
+combined_mask = valid_mask * (masks[1][y, x] == 1) * (alpha_mask[y, x] == 1)
+new_image[combined_mask] = object_img[y[combined_mask], x[combined_mask], :-1]
+
+# for x in tqdm(range(W)):
+#     for y in range(H):
+#         mapped_coordinate = mapped_coordinates[y, x]
+#         if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
+#             if masks[1][int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1 and alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
+#                 new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
+
     
 # perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) @ perspective_matrix
 # mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
