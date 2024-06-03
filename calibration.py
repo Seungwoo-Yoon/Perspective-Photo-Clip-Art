@@ -28,8 +28,6 @@ def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: Heig
     pz, L = height_projection(origin, vanishing, height_info)
     
     # compute K
-    print(Vx)
-    print(Vy)
 
     A = np.array([[Vx[0]*Vy[0]+Vx[1]*Vy[1], Vx[0]+Vy[0], Vx[1]+Vy[1], 1],
                   [Vy[0]*Vz[0]+Vy[1]*Vz[1], Vy[0]+Vz[0], Vy[1]+Vz[1] ,1],

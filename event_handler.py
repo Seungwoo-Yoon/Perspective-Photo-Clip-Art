@@ -27,12 +27,12 @@ def event_handler(event):
 
     W = background_img.shape[1]
 
-    background_x = np.array(js.backgroundX) / 500 * W
-    background_y = np.array(js.backgroundY) / 500 * W
-    background_z = np.array(js.backgroundZ) / 500 * W
-    background_height = np.array(js.backgroundHeight) / 500 * W
+    background_x = np.array(js.backgroundX) / js.backgroundCanvas.width * W
+    background_y = np.array(js.backgroundY) / js.backgroundCanvas.width * W
+    background_z = np.array(js.backgroundZ) / js.backgroundCanvas.width * W
+    background_height = np.array(js.backgroundHeight) / js.backgroundCanvas.width * W
     background_height_value = js.backgroundHeightValue
-    background_origin = np.array(js.backgroundOrigin) / 500 * W
+    background_origin = np.array(js.backgroundOrigin) / js.backgroundCanvas.width * W
 
     
     object_img = js.objectImageBase64
@@ -42,12 +42,12 @@ def event_handler(event):
     
     W = object_img.shape[1]
 
-    object_x = np.array(js.objectX) / 500 * W
-    object_y = np.array(js.objectY) / 500 * W
-    object_z = np.array(js.objectZ) / 500 * W
-    object_height = np.array(js.objectHeight) / 500 * W
+    object_x = np.array(js.objectX) / js.objectCanvas.width  * W
+    object_y = np.array(js.objectY) / js.objectCanvas.width  * W
+    object_z = np.array(js.objectZ) / js.objectCanvas.width  * W
+    object_height = np.array(js.objectHeight) / js.objectCanvas.width  * W
     object_height_value = js.objectHeightValue
-    object_origin = np.array(js.objectOrigin) / 500 * W
+    object_origin = np.array(js.objectOrigin) / js.objectCanvas.width * W
 
     rotation = js.rotation * np.pi / 180
 
@@ -61,7 +61,7 @@ def event_handler(event):
     P_obj = calibration(object_origin, obj_vp, obj_h)
 
     new_img = Image.fromarray(overwrite(background_img, object_img, P_bg, P_obj))
-    new_img.resize((500, int(500 * background_img.shape[0] / background_img.shape[1])))
+    new_img.resize((js.backgroundCanvas.width, int(js.backgroundCanvas.width * background_img.shape[0] / background_img.shape[1])))
 
     buffer = io.BytesIO()
     new_img.save(buffer, format='png')

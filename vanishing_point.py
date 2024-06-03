@@ -44,3 +44,19 @@ class VanishingPoint:
         y = -np.sin(theta) * homogeneous(self.x) + np.cos(theta) * homogeneous(self.y)
         
         self.x, self.y = euclidian(x), euclidian(y)
+
+
+if __name__ == "__main__":
+    xlist = np.array([[[751, 157], [915, 244]],
+                      [[750, 423], [877, 448]],
+                      [[879, 625], [1036, 596]]])
+    
+    ylist = np.array([[[749, 420], [752, 29]],
+                      [[856, 589], [855, 259]]])
+    
+    zlist = np.array([[[750, 419], [563, 449]],
+                      [[752, 154], [506, 282]]])
+    V = VanishingPoint(xlist, ylist, zlist)
+    print(V.x)
+    print(V.y)
+    print(V.z)
