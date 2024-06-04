@@ -265,7 +265,7 @@ if True: #test support points for perspective transform
     cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 30, (255, 255, 255), -1)
     cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 30, (255, 255, 255), -1)
 
-ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale=1.06)
+ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale2=0.5)#scale=1.06, scale2=0.8)
 # bg_p = getSupportPoints(bg_vanishing_lines,5,1)#,mapped_ori_p_first,scale=0.93) #FIXME
 bg_p = getSupportPoints(bg_vanishing_lines,5,1)
 # bg_p = getSupportPoints(bg_vanishing_lines,5,1,scale=0.93,scale2=1.5)
@@ -282,7 +282,7 @@ mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.
 y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
 x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
 valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
-combined_mask = valid_mask * (masks[1][y, x] == 1) * (alpha_mask[y, x] == 1)
+combined_mask = valid_mask * (alpha_mask[y, x] == 1)#* (masks[1][y, x] == 1) * (alpha_mask[y, x] == 1)
 new_image[combined_mask] = object_img[y[combined_mask], x[combined_mask], :-1]
         
 # if True: #test support points for perspective transform
