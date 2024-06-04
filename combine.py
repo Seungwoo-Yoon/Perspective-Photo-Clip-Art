@@ -7,16 +7,11 @@ def mapping(x: np.ndarray, P_origin: CameraParameter, P_target: CameraParameter,
     # map the 2D coordinate in origin picture to the target picture
     # Coordinate Mapping
     x = multiple_homogeneous(x)
-
-    C_origin_norm = np.linalg.norm(- P_origin.R.T @ P_origin.t)
-    C_target_norm = np.linalg.norm(- P_target.R.T @ P_target.t)
-
-    # scale = C_target_norm / C_origin_norm
-    scale = 1
+    
     if option is None:
-        mapped_x = (P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
+        mapped_x = (P_target.P @ np.linalg.pinv(P_origin.P) @ x.T).T
     else:
-        mapped_x = (P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ option @ x.T).T # for bg to obj
+        mapped_x = (P_target.P @ np.linalg.pinv(P_origin.P) @ option @ x.T).T # for bg to obj
         # mapped_x = (option @ P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T # for obj to bg
         # mapped_x = (np.linalg.inv(option) @ P_target.P @ np.diag([scale, scale, scale, 1]) @ np.linalg.pinv(P_origin.P) @ x.T).T
     

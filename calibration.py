@@ -27,7 +27,13 @@ def calibration(origin: np.ndarray, vanishing: VanishingPoint, height_info: Heig
     W = np.array([[w[0],0,w[1]],
                   [0,w[0],w[2]],
                   [w[1],w[2],w[3]]])
-    print(W)
+    
+    D, V = np.linalg.eig(W)
+    eps = 1e-12
+    D = np.max((-np.ones_like(D) * np.minimum(0., np.min(D)) + eps, D), axis=0)
+    D = np.diag(D)
+    W = V @ D @ np.linalg.inv(V)
+    
     K = np.linalg.inv(np.linalg.cholesky(W)).T
     K = K / K[2, 2]
     
