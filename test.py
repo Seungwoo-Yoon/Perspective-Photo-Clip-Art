@@ -236,18 +236,18 @@ xs, ys = np.meshgrid(range(W), range(H))
 mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
 mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
 
-# y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
-# x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
-# valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
-# combined_mask = valid_mask * (masks[0][y, x] == 1)## * #(alpha_mask[y, x] == 1) # * 
-# new_image[combined_mask] = object_img[y[combined_mask], x[combined_mask], :-1]
+y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
+x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
+valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
+combined_mask = valid_mask * (masks[0][y, x] == 1) * (alpha_mask[y, x] == 1)
+new_image[combined_mask] = object_img[y[combined_mask], x[combined_mask], :-1]
 
-for x in tqdm(range(W)):
-    for y in range(H):
-        mapped_coordinate = mapped_coordinates[y, x]
-        if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
-            if True: # alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-                new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
+# for x in tqdm(range(W)):
+#     for y in range(H):
+#         mapped_coordinate = mapped_coordinates[y, x]
+#         if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
+#             if True: # alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
+#                 new_image[y, x] = object_img[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
 
 mapped_ori_p_first = np.flip(multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(ori_p[3:4],axis=-1)).T).T),axis=-1)
 mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
