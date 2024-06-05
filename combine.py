@@ -73,61 +73,6 @@ def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0, scale
 
 
 def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, background_origin, object_origin) -> np.ndarray:
-    # For debugging
-    # bg = cv2.line(bg, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.z[0]), int(bg_vp.z[1])], (256, 0, 0), 3)
-    # bg = cv2.line(bg, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.x[0]), int(bg_vp.x[1])], (0, 0, 256), 3)
-    # bg = cv2.line(bg, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.y[0]), int(bg_vp.y[1])], (0, 256, 0), 3)
-    # obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.z[0]), int(obj_vp.z[1])], (256, 0, 0), 3)
-    # obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.x[0]), int(obj_vp.x[1])], (0, 0, 256), 3)
-    # obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.y[0]), int(obj_vp.y[1])], (0, 256, 0), 3)
-    
-    # P_bg = calibration(background_origin, bg_vp, bg_h)
-    # P_obj = calibration(object_origin, obj_vp, obj_h)
-    # new_image = bg.copy()
-    # alpha_mask = mask(obj)
-    # W, H = bg.shape[1], bg.shape[0]
-    # objH, objW = obj.shape[0], obj.shape[1]
-    # xs, ys = np.meshgrid(range(W), range(H))
-    # mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
-    # mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj).reshape(H, W, 2)
-
-    # for x in range(W):
-    #     for y in range(H):
-    #         mapped_coordinate = mapped_coordinates[y, x]
-    #         if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
-    #             if alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
-    #                 new_image[y, x, :3] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
-    # return new_image
-    if True:
-        # obj_vp.x = np.array([1110.4,-33.88])
-        # obj_vp.y = np.array([-129.45,-180])
-        # obj_vp.z = np.array([196.68,925.44])
-        # obj_h.ground_point = np.array([178,365])
-        # obj_h.offset_point = np.array([171,151])
-        # object_origin = np.array([178,365])
-        print("bg_vp.x", bg_vp.x)
-        print("bg_vp.y", bg_vp.y)
-        print("bg_vp.z", bg_vp.z)
-        print("obj_vp.x", obj_vp.x)
-        print("obj_vp.y", obj_vp.y)
-        print("obj_vp.z", obj_vp.z)
-        print("bg_h", bg_h.ground_point, bg_h.offset_point)
-        print("obj_h", obj_h.ground_point, obj_h.offset_point)
-        print("background_origin", background_origin)
-        print("object_origin", object_origin)
-        print("object_img.shape", obj.shape)
-        
-        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.z[0]), int(obj_vp.z[1])], (256, 0, 0), 30)
-        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.x[0]), int(obj_vp.x[1])], (0, 256, 0), 30)
-        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.y[0]), int(obj_vp.y[1])], (0, 0, 256), 30)
-
-    # bg_vp.x = np.array([5198.94645813,1148.70708632])
-    # bg_vp.y = np.array([417.36650935,688.30658462])
-    # bg_vp.z = np.array([1312.46459417,4238.03850016])
-    # bg_h.ground_point = np.array([973.728,2092.608])
-    # bg_h.offset_point = np.array([1106.784,2927.232])
-    # obj_h.ground_point = np.array([180.128,366.318])
-    # obj_h.offset_point = np.array([172.334,149.818])
     P_bg = calibration(background_origin, bg_vp, bg_h)
     P_obj = calibration(object_origin, obj_vp, obj_h)
 
