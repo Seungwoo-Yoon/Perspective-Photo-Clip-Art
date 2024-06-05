@@ -57,7 +57,7 @@ def event_handler(event):
     
     bg_h = HeightInformation(background_height[0], background_height[1], background_height_value)
     obj_h = HeightInformation(object_height[0], object_height[1], object_height_value)
-
+    print("object_img.shape", object_img.shape)
     new_img = Image.fromarray(overwrite(background_img, object_img, bg_vp, obj_vp, bg_h, obj_h, background_origin, object_origin))
     new_img.resize((js.backgroundCanvas.width, int(js.backgroundCanvas.width * background_img.shape[0] / background_img.shape[1])))
 
