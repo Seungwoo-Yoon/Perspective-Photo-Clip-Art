@@ -109,10 +109,16 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
         print("obj_h", obj_h.ground_point, obj_h.offset_point)
         print("background_origin", background_origin)
         print("object_origin", object_origin)
-
-        obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.z[0]), int(obj_vp.z[1])], (256, 0, 0), 3)
-        obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.x[0]), int(obj_vp.x[1])], (0, 0, 256), 3)
-        obj = cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.y[0]), int(obj_vp.y[1])], (0, 256, 0), 3)
+        
+        obj_vp.x = np.array([1110.4,-33.88])
+        obj_vp.y = np.array([-129.45,-180])
+        obj_vp.z = np.array([196.68,925.44])
+        obj_h.ground_point = np.array([178,365])
+        obj_h.offset_point = np.array([171,151])
+        object_origin = np.array([178,365])
+        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.z[0]), int(obj_vp.z[1])], (256, 0, 0), 30)
+        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.x[0]), int(obj_vp.x[1])], (0, 256, 0), 30)
+        # cv2.line(obj, [int(object_origin[0]), int(object_origin[1])], [int(obj_vp.y[0]), int(obj_vp.y[1])], (0, 0, 256), 30)
 
     # bg_vp.x = np.array([5198.94645813,1148.70708632])
     # bg_vp.y = np.array([417.36650935,688.30658462])
@@ -165,6 +171,14 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
         mas = (mycross(a,target) * mycross(a,b) >=0) *\
             (mycross(b,target) * mycross(b,a) >= 0)
         masks.append(mas)
+            
+    # check masks
+    for i, color in enumerate([[0, 0, 255, 255],[0, 255, 0, 255],[255, 0, 0, 255],[0, 0, 255, 255],[0, 255, 0, 255],[255, 0, 0, 255]]):
+        color_mask = np.zeros((*masks[i].shape, 4), dtype=np.float32)
+        color_mask[masks[i]] = color#[0, 0, 255, 255]
+        new_image_float = obj.astype(np.float32)
+        new_image_float = cv2.addWeighted(new_image_float, 1.0, color_mask, 0.9, 0)
+        obj = new_image_float.astype(np.uint8)
         
     # Calculate mapped vanishing lines
     new_image = new_image.copy()
@@ -188,11 +202,19 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
 
     # Overwrite the image
-    y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
-    x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
-    valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
-    combined_mask = valid_mask * (alpha_mask[y, x] == 1) #* (masks[0][y, x] == 1)
-    new_image[combined_mask] = obj[y[combined_mask], x[combined_mask], :-1]
+    y = mapped_coordinates[..., 1].astype(int)
+    x = mapped_coordinates[..., 0].astype(int)
+    valid_mask = (y >= 0) & (y < objH) & (x >= 0) & (x < objW)
+    y = y[valid_mask]
+    x = x[valid_mask]
+    combined_mask = valid_mask.copy()
+    combined_mask[valid_mask] *= True #(alpha_mask[y, x] == 1)#(masks[0][y, x] == 1) *
+    new_image[combined_mask] = obj[y[combined_mask[valid_mask]], x[combined_mask[valid_mask]], :-1]
+    # y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
+    # x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
+    # # valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
+    # combined_mask = (alpha_mask[y, x] == 1) * (masks[0][y, x] == 1) #valid_mask * 
+    # new_image[combined_mask] = obj[y[combined_mask], x[combined_mask], :-1]
 
     # for x in tqdm(range(W)):
     #     for y in range(H):
@@ -200,7 +222,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     #         if 0 <= int(mapped_coordinate[1]) < objH and 0 <= int(mapped_coordinate[0]) < objW:
     #             if True: # alpha_mask[int(mapped_coordinate[1]), int(mapped_coordinate[0])] == 1:
     #                 new_image[y, x] = obj[int(mapped_coordinate[1]), int(mapped_coordinate[0]), :-1]
-
+    
     # Calculate the perspective matrix for the next step
     mapped_ori_p_first = np.flip(multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(ori_p[3:4],axis=-1)).T).T),axis=-1)
     mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
@@ -214,11 +236,14 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
     mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
 
-    # y = np.clip(mapped_coordinates[..., 1], 0, objH - 1).astype(int)
-    # x = np.clip(mapped_coordinates[..., 0], 0, objW - 1).astype(int)
-    # valid_mask = (0 <= y) * (y < objH) * (0 <= x) * (x < objW)
-    # combined_mask = valid_mask * (masks[1][y, x] == 1) * (alpha_mask[y, x] == 1)
-    # new_image[combined_mask] = obj[y[combined_mask], x[combined_mask], :-1]
+    # y = mapped_coordinates[..., 1].astype(int)
+    # x = mapped_coordinates[..., 0].astype(int)
+    # valid_mask = (y >= 0) & (y < objH) & (x >= 0) & (x < objW)
+    # y = y[valid_mask]
+    # x = x[valid_mask]
+    # combined_mask = valid_mask.copy()
+    # combined_mask[valid_mask] &= (alpha_mask[y, x] == 1) #(masks[1][y, x] == 1) * 
+    # new_image[combined_mask] = obj[y[combined_mask[valid_mask]], x[combined_mask[valid_mask]], :-1]
     
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.z[0]), int(bg_vp.z[1])], (0, 0, 255), 3)
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.x[0]), int(bg_vp.x[1])], (255, 0, 0), 3)
