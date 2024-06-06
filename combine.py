@@ -134,7 +134,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 
     # Get 4 points for perspective transform
-    ori_p = getSupportPoints(mapped_vanishing_lines,0,5,scale=1.0)
+    ori_p = getSupportPoints(mapped_vanishing_lines,0,5,scale2=1.0)
     bg_p = getSupportPoints(bg_vanishing_lines,0,5)
 
     # Calculate perspective matrix
@@ -161,7 +161,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_vanishing_lines[:,1] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,1],axis=-1)).T).T)
     mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 
-    ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale=1.06)
+    ori_p = getSupportPoints(mapped_vanishing_lines,5,1,scale=1.0)
     bg_p = getSupportPoints(bg_vanishing_lines,5,1)
 
     perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) @ perspective_matrix
