@@ -155,6 +155,10 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     combined_mask[valid_mask] *= (alpha_mask[y, x] == 1) * (masks[0][y, x] == 1) 
     new_image[combined_mask] = obj[y[combined_mask[valid_mask]], x[combined_mask[valid_mask]], :-1]
     
+    # cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[2,1,1]), int(mapped_vanishing_lines[2,1,0])], (0, 0, 0), 3)
+    # cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[0,1,1]), int(mapped_vanishing_lines[0,1,0])], (255, 255, 255), 3)
+    # cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[1,1,1]), int(mapped_vanishing_lines[1,1,0])], (120, 120, 120), 3)
+    
     # Calculate the perspective matrix for the next step
     mapped_ori_p_first = np.flip(multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(ori_p[3:4],axis=-1)).T).T),axis=-1)
     mapped_vanishing_lines[:,0] = multiple_euclidian((perspective_matrix @ multiple_homogeneous(np.flip(mapped_vanishing_lines[:,0],axis=-1)).T).T)
@@ -180,4 +184,9 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.z[0]), int(bg_vp.z[1])], (0, 0, 255), 3)
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.x[0]), int(bg_vp.x[1])], (255, 0, 0), 3)
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.y[0]), int(bg_vp.y[1])], (0, 256, 0), 3)
+    
+    cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[2,1,1]), int(mapped_vanishing_lines[2,1,0])], (0, 255, 255), 3)
+    cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[0,1,1]), int(mapped_vanishing_lines[0,1,0])], (255, 0, 255), 3)
+    cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[1,1,1]), int(mapped_vanishing_lines[1,1,0])], (255, 256, 0), 3)
+    
     return new_image
