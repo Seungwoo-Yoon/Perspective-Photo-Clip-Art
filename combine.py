@@ -80,7 +80,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     P_bg = calibration(background_origin, bg_vp, bg_h)
     P_obj = calibration(object_origin, obj_vp, obj_h)
 
-    # Initialize the configuration of images
+    # Initialize the configuration of image
     new_image = bg.copy()
     alpha_mask = mask(obj)
     W, H = new_image.shape[1], new_image.shape[0]
@@ -140,8 +140,14 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
 
     # Get 4 points for perspective transform
-    ori_p = getSupportPoints(mapped_vanishing_lines,0,5,scale2=1.0)
-    bg_p = getSupportPoints(bg_vanishing_lines,0,5)
+    bg_vectors = bg_vanishing_lines[:, 1] - bg_vanishing_lines[:, 0]
+    absolute_angles = np.degrees(np.arctan2(bg_vectors[:, 1], bg_vectors[:, 0]))
+    absolute_angles -= absolute_angles[0]
+    absolute_angles = (absolute_angles + 720) % 360
+    line_order = np.argsort(absolute_angles)
+    
+    ori_p = getSupportPoints(mapped_vanishing_lines,0,line_order[1],scale2=1.0)
+    bg_p = getSupportPoints(bg_vanishing_lines,0,line_order[1])
     
     temp_ori_p = ori_p.copy()
     temp_bg_p = bg_p.copy()
@@ -165,8 +171,8 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     new_image[combined_mask] = obj[y[combined_mask[valid_mask]], x[combined_mask[valid_mask]], :-1]
     
     # Calculate the perspective matrix for the next step
-    ori_p = getSupportPoints(mapped_vanishing_lines,1,5,scale=1.0)
-    bg_p = getSupportPoints(bg_vanishing_lines,1,5)
+    ori_p = getSupportPoints(mapped_vanishing_lines,line_order[2],line_order[1],scale=1.0)
+    bg_p = getSupportPoints(bg_vanishing_lines,line_order[2],line_order[1])
     
     perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) # @ perspective_matrix
     mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
