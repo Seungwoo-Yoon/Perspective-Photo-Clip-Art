@@ -52,8 +52,8 @@ def myPerspective(ori_p,bg_p):
         A[2*i,6:] = -bg_p[i][0] * np.array([*temp_ori_p[i],1])
         A[2*i+1,6:] = -bg_p[i][1] * np.array([*temp_ori_p[i],1])
     _,s,Vt = np.linalg.svd(A)
-    if np.linalg.det(Vt[-1].reshape(3,3)) < 0:
-        Vt[-1] = -Vt[-1]
+    # if np.linalg.det(Vt[-1].reshape(3,3)) < 0:
+    #     Vt[-1] = -Vt[-1]
     return Vt[-1].reshape(3,3)
 
 def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0, scale2=1.0):
@@ -73,7 +73,16 @@ def getSupportPoints(vanishing_lines,start,end,lastPoints=None, scale=1.0, scale
     ori_p_4 = ori_p_1 + (sec_line_offset + line_length*scale2) * (temp_ori_p - ori_p_1) / np.linalg.norm(temp_ori_p - ori_p_1)
     return np.array([ori_p_1,ori_p_2,ori_p_3,ori_p_4])
 
-
+def getLineOrder(vanishing_lines):
+    vectors = vanishing_lines[:, 1] - vanishing_lines[:, 0]
+    absolute_angles = np.degrees(np.arctan2(vectors[:, 1], vectors[:, 0]))
+    is_ref_right = absolute_angles[0] > 0.0
+    absolute_angles -= absolute_angles[0]
+    absolute_angles = (absolute_angles + 720) % 360
+    line_order = np.argsort(absolute_angles)
+    if not is_ref_right:
+        line_order[1:] = line_order[1:][::-1]
+    return line_order
 
 def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, background_origin, object_origin) -> np.ndarray:
     # Initialize the perspective matrix
@@ -109,9 +118,12 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     # Make masks for each region
     vectors = vanishing_lines[:, 1] - vanishing_lines[:, 0]
     absolute_angles = np.degrees(np.arctan2(vectors[:, 1], vectors[:, 0]))
+    is_ref_right = absolute_angles[0] > 0.0
     absolute_angles -= absolute_angles[0]
     absolute_angles = (absolute_angles + 720) % 360
     line_order = np.argsort(absolute_angles)
+    if not is_ref_right:
+        line_order[1:] = line_order[1:][::-1]
 
     y, x = np.mgrid[:obj.shape[0],:obj.shape[1]]
     masks = []
@@ -138,16 +150,28 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     mapped_vanishing_lines[:,0] = multiple_euclidian((np.linalg.pinv(mapped_to_bg) @ multiple_homogeneous(np.flip(vanishing_lines[:,0],axis=-1)).T).T)
     mapped_vanishing_lines[:,1] = multiple_euclidian((np.linalg.pinv(mapped_to_bg) @ multiple_homogeneous(np.flip(vanishing_lines[:,1],axis=-1)).T).T)
     mapped_vanishing_lines = np.flip(mapped_vanishing_lines,axis=-1)
+    
+    vectors = mapped_vanishing_lines[:, 1] - mapped_vanishing_lines[:, 0]
+    absolute_angles = np.degrees(np.arctan2(vectors[:, 1], vectors[:, 0]))
+    is_ref_right = absolute_angles[0] > 0.0
+    absolute_angles -= absolute_angles[0]
+    absolute_angles = (absolute_angles + 720) % 360
+    line_order = np.argsort(absolute_angles)
+    if not is_ref_right:
+        line_order[1:] = line_order[1:][::-1]
 
     # Get 4 points for perspective transform
     bg_vectors = bg_vanishing_lines[:, 1] - bg_vanishing_lines[:, 0]
     absolute_angles = np.degrees(np.arctan2(bg_vectors[:, 1], bg_vectors[:, 0]))
+    is_ref_right = absolute_angles[0] > 0.0
     absolute_angles -= absolute_angles[0]
     absolute_angles = (absolute_angles + 720) % 360
-    line_order = np.argsort(absolute_angles)
+    bg_line_order = np.argsort(absolute_angles)
+    if not is_ref_right:
+        bg_line_order[1:] = bg_line_order[1:][::-1]
     
     ori_p = getSupportPoints(mapped_vanishing_lines,0,line_order[1],scale2=1.0)
-    bg_p = getSupportPoints(bg_vanishing_lines,0,line_order[1])
+    bg_p = getSupportPoints(bg_vanishing_lines,0,bg_line_order[1])
     
     temp_ori_p = ori_p.copy()
     temp_bg_p = bg_p.copy()
@@ -156,7 +180,6 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1))
 
     # Generate mapped coordinates
-    xs, ys = np.meshgrid(range(W), range(H))
     mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
     mapped_coordinates = mapping(mapped_coordinates.reshape(-1, 2), P_bg, P_obj, np.linalg.inv(perspective_matrix)).reshape(H, W, 2)
 
@@ -172,7 +195,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     
     # Calculate the perspective matrix for the next step
     ori_p = getSupportPoints(mapped_vanishing_lines,line_order[2],line_order[1],scale=1.0)
-    bg_p = getSupportPoints(bg_vanishing_lines,line_order[2],line_order[1])
+    bg_p = getSupportPoints(bg_vanishing_lines,bg_line_order[2],bg_line_order[1])
     
     perspective_matrix = myPerspective(np.flip(ori_p,axis=-1),np.flip(bg_p,axis=-1)) # @ perspective_matrix
     mapped_coordinates = np.array((xs, ys)).transpose((1, 2, 0))
@@ -191,7 +214,7 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.z[0]), int(bg_vp.z[1])], (0, 0, 255), 3)
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.x[0]), int(bg_vp.x[1])], (255, 0, 0), 3)
     cv2.line(new_image, [int(background_origin[0]), int(background_origin[1])], [int(bg_vp.y[0]), int(bg_vp.y[1])], (0, 256, 0), 3)
-    
+        
     #Draw lines and points for debugging
     if False:
         #Draw vanishing lines
@@ -200,25 +223,15 @@ def overwrite(bg: np.ndarray, obj: np.ndarray, bg_vp, obj_vp, bg_h, obj_h, backg
         cv2.line(new_image, [int(mapped_vanishing_lines[0,0,1]), int(mapped_vanishing_lines[0,0,0])], [int(mapped_vanishing_lines[1,1,1]), int(mapped_vanishing_lines[1,1,0])], (255, 256, 0), 3)
         
         #test support points for perspective transform
-        cv2.circle(new_image, (int(temp_ori_p[0,1]), int(temp_ori_p[0,0])), 20, (255, 255, 0), -1)
-        cv2.circle(new_image, (int(temp_ori_p[1,1]), int(temp_ori_p[1,0])), 20, (255, 255, 0), -1) #cyan
-        cv2.circle(new_image, (int(temp_ori_p[2,1]), int(temp_ori_p[2,0])), 20, (255, 255, 0), -1) #magenta
-        cv2.circle(new_image, (int(temp_ori_p[3,1]), int(temp_ori_p[3,0])), 20, (255, 255, 0), -1)
-        
-        cv2.circle(new_image, (int(temp_bg_p[0,1]), int(temp_bg_p[0,0])), 20, (255, 255, 0), -1)
-        cv2.circle(new_image, (int(temp_bg_p[1,1]), int(temp_bg_p[1,0])), 20, (255, 255, 0), -1)
-        cv2.circle(new_image, (int(temp_bg_p[2,1]), int(temp_bg_p[2,0])), 20, (255, 255, 0), -1)
-        cv2.circle(new_image, (int(temp_bg_p[3,1]), int(temp_bg_p[3,0])), 20, (255, 255, 0), -1)
-        
-        #test support points for perspective transform
-        cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (0, 255, 255), -1)
-        cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 10, (0, 255, 255), -1) #cyan
-        cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 10, (0, 255, 255), -1) #magenta
-        cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 10, (0, 255, 255), -1)
-
-        cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 10, (0, 255, 255), -1)
+        cv2.circle(new_image, (int(bg_p[0,1]), int(bg_p[0,0])), 30, (255, 255, 255), -1)
         cv2.circle(new_image, (int(bg_p[1,1]), int(bg_p[1,0])), 10, (0, 255, 255), -1)
-        cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 10, (0, 255, 255), -1)
-        cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 255, 255), -1)
-
+        cv2.circle(new_image, (int(bg_p[2,1]), int(bg_p[2,0])), 20, (0, 125, 125), -1)
+        cv2.circle(new_image, (int(bg_p[3,1]), int(bg_p[3,0])), 10, (0, 125, 125), -1)  
+        
+        cv2.circle(new_image, (int(ori_p[0,1]), int(ori_p[0,0])), 10, (255, 255, 0), -1)
+        cv2.circle(new_image, (int(ori_p[1,1]), int(ori_p[1,0])), 5, (255, 255, 0), -1)
+        cv2.circle(new_image, (int(ori_p[2,1]), int(ori_p[2,0])), 5, (125, 125, 0), -1)
+        cv2.circle(new_image, (int(ori_p[3,1]), int(ori_p[3,0])), 5, (125, 125, 0), -1)
+    print(f"bg : 0 -> {bg_line_order[1]} -> {bg_line_order[2]}")
+    print(f"obj: 0 -> {line_order[1]} -> {line_order[2]}")
     return new_image
